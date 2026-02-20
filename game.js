@@ -175,10 +175,7 @@ class Player extends Entity {
             this.vy += 0.5; // 煞車
             this.isAccelerating = false;
         } else {
-            // 無油門：緩慢自動巡航 (非常慢的加速)
-            if (this.vy > -this.maxSpeed * 0.4) {
-                this.vy -= this.accel * 0.08;
-            }
+            // 無油門：維持當前速度，僅非常緩慢地降速 (慣性滑行)
             this.isAccelerating = false;
         }
 
@@ -189,7 +186,12 @@ class Player extends Entity {
         }
 
         // 摩擦力 (阻力衰減)
-        this.vy *= this.drag;
+        // 加速中用正常阻力；滑行中用極輕阻力讓速度緩緩降
+        if (this.isAccelerating || thrust < 0) {
+            this.vy *= this.drag;
+        } else {
+            this.vy *= 0.999; // 極輕阻力，速度幾乎不掉
+        }
         // 橫向阻力比縱向大，除非處於冰原等打滑狀態。
         // driftInertia 越大，橫向速度衰減越慢(越滑)
         this.vx *= (1 - this.driftInertia);
@@ -219,8 +221,8 @@ class Player extends Entity {
 
         // 只允許玩家在畫布下半部稍微移動（更低位置，但不被按鈕遮擋）
         this.y += this.vy * 0.1;
-        if (this.y > canvas.height - 150) this.y = canvas.height - 150;
-        if (this.y < canvas.height - 300) this.y = canvas.height - 300;
+        if (this.y > canvas.height - 200) this.y = canvas.height - 200;
+        if (this.y < canvas.height - 350) this.y = canvas.height - 350;
 
         // 計算真實距離
         if (this.vy < 0) {
@@ -418,7 +420,7 @@ class Player extends Entity {
             ctx.moveTo(-hw * 0.25, hh * 0.4);
             ctx.quadraticCurveTo(0, hh * 0.5, hw * 0.25, hh * 0.4);
             ctx.stroke();
-            
+
             // 下顎邊緣陰影
             ctx.fillStyle = 'rgba(0,0,0,0.1)';
             ctx.beginPath();
@@ -1430,7 +1432,7 @@ function drawCarPreview(canvasId, carType, color, carW, carH) {
         ctx.moveTo(-hw * 0.25, hh * 0.4);
         ctx.quadraticCurveTo(0, hh * 0.5, hw * 0.25, hh * 0.4);
         ctx.stroke();
-        
+
         ctx.fillStyle = 'rgba(0,0,0,0.1)';
         ctx.beginPath();
         ctx.moveTo(-hw * 0.3, hh * 0.5);
