@@ -173,8 +173,17 @@ class Player extends Entity {
 
         // --- 物理系統 ---
         // 縱向加速 - 每台車有獨立的加速度數值
+        // 速度 > 60 km/h 時，加速度隨速度增加而遞減
         if (thrust > 0) {
-            this.vy -= this.accel; // 向前加速 (Canvas Y負向)
+            let currentKmh = Math.abs(this.vy) * 12;
+            let effectiveAccel = this.accel;
+            if (currentKmh > 60) {
+                // 速度越高，加速越困難 (60~極速之間線性遞減到 10%)
+                let maxKmh = this.baseMaxSpeed * 12;
+                let ratio = Math.max(0.1, 1 - (currentKmh - 60) / (maxKmh - 60) * 0.9);
+                effectiveAccel = this.accel * ratio;
+            }
+            this.vy -= effectiveAccel; // 向前加速 (Canvas Y負向)
             this.isAccelerating = true;
         } else if (thrust < 0) {
             this.vy += 0.5; // 煞車
