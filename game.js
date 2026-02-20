@@ -18,6 +18,7 @@ const hud = {
     dist: document.getElementById('hud-dist'),
     speed: document.getElementById('hud-speed'),
     maxspd: document.getElementById('hud-maxspd'),
+    accel: document.getElementById('hud-accel'),
     ammo: document.getElementById('hud-ammo'),
     coins: document.getElementById('hud-coins')
 };
@@ -184,15 +185,18 @@ class Player extends Entity {
                 effectiveAccel = this.accel * ratio;
             }
             this.vy -= effectiveAccel; // 向前加速 (Canvas Y負向)
+            this.currentAccel = effectiveAccel;
             this.isAccelerating = true;
         } else if (thrust < 0) {
             this.vy += 0.5; // 煞車
+            this.currentAccel = 0;
             this.isAccelerating = false;
         } else {
             // 無油門無煞車：自動緩慢巡航到 20 km/h (vy = -1.67)
             if (this.vy > -1.67) {
                 this.vy -= this.accel * 0.15; // 緩慢加速到 20
             }
+            this.currentAccel = 0;
             this.isAccelerating = false;
         }
 
@@ -1073,6 +1077,7 @@ function updateHUD() {
     }
     hud.speed.innerText = rawKmh;
     hud.maxspd.innerText = Math.round(player.baseMaxSpeed * 12);
+    hud.accel.innerText = (player.currentAccel || 0).toFixed(3);
     hud.ammo.innerText = 'Lv.' + player.missileLevel;
     hud.coins.innerText = GameState.coins;
     // Time 放在 loop 裡面跑
