@@ -318,7 +318,8 @@ canvas {
 
 .control-group-right {
     display: flex;
-    align-items: flex-end;
+    align-items: flex-start;
+    gap: 15px;
 }
 
 .v-btn {

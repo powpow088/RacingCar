@@ -247,7 +247,8 @@ class Player extends Entity {
         }
 
         this.hp -= amount;
-        this.vy = 0;
+        // 撞車減速約 25 km/h，不直接歸零
+        this.vy = Math.min(this.vy + 2.5, 0);
         this.invincibleTimer = 2.0;
         AudioSys.playCrash();
 
@@ -528,9 +529,9 @@ class Player extends Entity {
 
         // === 加速噴射特效 ===
         if (this.isAccelerating && this.vy < -1) {
-            ctx.shadowColor = '#3498db';
+            ctx.shadowColor = '#f39c12';
             ctx.shadowBlur = 8;
-            ctx.fillStyle = '#74b9ff';
+            ctx.fillStyle = '#f1c40f';
             // 左噴射
             ctx.beginPath();
             ctx.moveTo(-hw + 6, hh);
