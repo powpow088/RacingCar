@@ -206,12 +206,12 @@ class Player extends Entity {
             this.vx += turn * this.turnSpeed * 0.05;
         }
 
-        // 摩擦力 (阻力衰減)
-        // 加速中用正常阻力；滑行中用極輕阻力讓速度緩緩降
-        if (this.isAccelerating || thrust < 0) {
-            this.vy *= this.drag;
-        } else {
-            this.vy *= 0.99997; // 極輕阻力，約 6 秒掉 1 km/h
+        // 摩擦力 (阻力衰減) — 只在非加速時才套用
+        // 加速中不用 drag，由速度依賴加速度 + 硬性極速上限控制終端速度
+        if (thrust < 0) {
+            this.vy *= this.drag; // 煞車時套用阻力
+        } else if (!this.isAccelerating) {
+            this.vy *= 0.99997; // 滑行時極輕阻力，約 6 秒掉 1 km/h
         }
         // 橫向阻力比縱向大，除非處於冰原等打滑狀態。
         // driftInertia 越大，橫向速度衰減越慢(越滑)
