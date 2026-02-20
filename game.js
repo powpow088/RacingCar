@@ -832,7 +832,7 @@ function endGame() {
 
     screens.game.classList.remove('active');
     screens.gameOver.classList.add('active');
-    document.getElementById('go-dist').innerText = Math.floor(GameState.dist);
+    document.getElementById('go-dist').innerText = (GameState.dist / 1000).toFixed(2);
 }
 
 function showEffectNotice(text) {
