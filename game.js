@@ -360,7 +360,7 @@ class Player extends Entity {
             ctx.shadowColor = '#c29d0b';
             ctx.shadowBlur = 10;
             ctx.save();
-            ctx.translate(-hw * 0.42, -hh * 0.15);
+            ctx.translate(-hw * 0.52, -hh * 0.15);
             ctx.rotate(-Math.PI / 4);
             let eg1 = ctx.createRadialGradient(0, 0, 0, 0, 0, 12);
             eg1.addColorStop(0, '#f5e6b8');
@@ -368,11 +368,11 @@ class Player extends Entity {
             eg1.addColorStop(1, '#b8860b');
             ctx.fillStyle = eg1;
             ctx.beginPath();
-            ctx.ellipse(0, 0, 6, 14, 0, 0, Math.PI * 2);
+            ctx.ellipse(0, 0, 4.5, 12, 0, 0, Math.PI * 2);
             ctx.fill();
             ctx.restore();
             ctx.save();
-            ctx.translate(hw * 0.42, -hh * 0.15);
+            ctx.translate(hw * 0.52, -hh * 0.15);
             ctx.rotate(Math.PI / 4);
             let eg2 = ctx.createRadialGradient(0, 0, 0, 0, 0, 12);
             eg2.addColorStop(0, '#f5e6b8');
@@ -380,7 +380,7 @@ class Player extends Entity {
             eg2.addColorStop(1, '#b8860b');
             ctx.fillStyle = eg2;
             ctx.beginPath();
-            ctx.ellipse(0, 0, 6, 14, 0, 0, Math.PI * 2);
+            ctx.ellipse(0, 0, 4.5, 12, 0, 0, Math.PI * 2);
             ctx.fill();
             ctx.restore();
             ctx.shadowBlur = 0;
@@ -1333,7 +1333,7 @@ function drawCarPreview(canvasId, carType, color, carW, carH) {
         ctx.shadowColor = '#c29d0b';
         ctx.shadowBlur = 10;
         ctx.save();
-        ctx.translate(-hw * 0.42, -hh * 0.15);
+        ctx.translate(-hw * 0.52, -hh * 0.15);
         ctx.rotate(-Math.PI / 4);
         let eg1 = ctx.createRadialGradient(0, 0, 0, 0, 0, 12);
         eg1.addColorStop(0, '#f5e6b8');
@@ -1341,11 +1341,11 @@ function drawCarPreview(canvasId, carType, color, carW, carH) {
         eg1.addColorStop(1, '#b8860b');
         ctx.fillStyle = eg1;
         ctx.beginPath();
-        ctx.ellipse(0, 0, 6, 14, 0, 0, Math.PI * 2);
+        ctx.ellipse(0, 0, 4.5, 12, 0, 0, Math.PI * 2);
         ctx.fill();
         ctx.restore();
         ctx.save();
-        ctx.translate(hw * 0.42, -hh * 0.15);
+        ctx.translate(hw * 0.52, -hh * 0.15);
         ctx.rotate(Math.PI / 4);
         let eg2 = ctx.createRadialGradient(0, 0, 0, 0, 0, 12);
         eg2.addColorStop(0, '#f5e6b8');
@@ -1353,7 +1353,7 @@ function drawCarPreview(canvasId, carType, color, carW, carH) {
         eg2.addColorStop(1, '#b8860b');
         ctx.fillStyle = eg2;
         ctx.beginPath();
-        ctx.ellipse(0, 0, 6, 14, 0, 0, Math.PI * 2);
+        ctx.ellipse(0, 0, 4.5, 12, 0, 0, Math.PI * 2);
         ctx.fill();
         ctx.restore();
         ctx.shadowBlur = 0;
