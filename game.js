@@ -27,7 +27,8 @@ const effectNotice = document.getElementById('effect-notice');
 const CAR_PRESETS = {
     balanced: { hp: 10, maxSpeed: 6, accel: 0.06, turnSpeed: 5, color: '#3498db', driftInertia: 0.1 },
     heavy: { hp: 15, maxSpeed: 4, accel: 0.025, turnSpeed: 3, color: '#e67e22', driftInertia: 0.05 },
-    sports: { hp: 5, maxSpeed: 9, accel: 0.12, turnSpeed: 7, color: '#e74c3c', driftInertia: 0.2 }
+    sports: { hp: 5, maxSpeed: 9, accel: 0.12, turnSpeed: 7, color: '#e74c3c', driftInertia: 0.2 },
+    ultraman: { hp: 99, maxSpeed: 12, accel: 0.25, turnSpeed: 8, color: '#ecf0f1', driftInertia: 0.15 }
 };
 
 const DIFF_PRESETS = {
@@ -288,85 +289,144 @@ class Player extends Entity {
         const hw = this.w / 2;
         const hh = this.h / 2;
 
-        // === 輪胎 ===
-        ctx.fillStyle = '#1a1a1a';
-        // 前輪
-        ctx.fillRect(-hw - 4, -hh + 8, 6, 16);
-        ctx.fillRect(hw - 2, -hh + 8, 6, 16);
-        // 後輪
-        ctx.fillRect(-hw - 4, hh - 24, 6, 16);
-        ctx.fillRect(hw - 2, hh - 24, 6, 16);
-        // 輪胎高光
-        ctx.fillStyle = '#444';
-        ctx.fillRect(-hw - 3, -hh + 10, 2, 12);
-        ctx.fillRect(hw - 1, -hh + 10, 2, 12);
-        ctx.fillRect(-hw - 3, hh - 22, 2, 12);
-        ctx.fillRect(hw - 1, hh - 22, 2, 12);
+        // 若是奧特曼，繪製奧特曼頭像俯視圖
+        if (GameState.carType === 'ultraman') {
+            // 頭部基底 (銀灰色漸層)
+            let headGrad = ctx.createRadialGradient(0, 0, 5, 0, 0, hh);
+            headGrad.addColorStop(0, '#ffffff');
+            headGrad.addColorStop(1, '#bdc3c7');
+            ctx.fillStyle = headGrad;
+            ctx.beginPath();
+            ctx.ellipse(0, 0, hw, hh, 0, 0, Math.PI * 2);
+            ctx.fill();
 
-        // === 車身底色 (圓角) ===
-        ctx.beginPath();
-        const r = 6;
-        ctx.moveTo(-hw + r, -hh);
-        ctx.lineTo(hw - r, -hh);
-        ctx.quadraticCurveTo(hw, -hh, hw, -hh + r);
-        ctx.lineTo(hw, hh - r);
-        ctx.quadraticCurveTo(hw, hh, hw - r, hh);
-        ctx.lineTo(-hw + r, hh);
-        ctx.quadraticCurveTo(-hw, hh, -hw, hh - r);
-        ctx.lineTo(-hw, -hh + r);
-        ctx.quadraticCurveTo(-hw, -hh, -hw + r, -hh);
-        ctx.closePath();
-        ctx.fillStyle = this.color;
-        ctx.fill();
+            // 兩側耳朵/耳機紋路
+            ctx.fillStyle = '#7f8c8d';
+            ctx.fillRect(-hw - 2, -3, 4, 12);
+            ctx.fillRect(hw - 2, -3, 4, 12);
 
-        // === 金屬漸層高光 ===
-        let grad = ctx.createLinearGradient(-hw, 0, hw, 0);
-        grad.addColorStop(0, 'rgba(255,255,255,0.15)');
-        grad.addColorStop(0.4, 'rgba(255,255,255,0.05)');
-        grad.addColorStop(0.6, 'rgba(255,255,255,0.05)');
-        grad.addColorStop(1, 'rgba(0,0,0,0.15)');
-        ctx.fillStyle = grad;
-        ctx.fill();
+            // 頭頂紅色頭冠 (Crest)
+            ctx.fillStyle = '#e74c3c';
+            ctx.beginPath();
+            ctx.moveTo(-4, -hh);
+            ctx.lineTo(4, -hh);
+            ctx.lineTo(2, 6);
+            ctx.lineTo(-2, 6);
+            ctx.closePath();
+            ctx.fill();
 
-        // === 賽車條紋 ===
-        ctx.fillStyle = 'rgba(255,255,255,0.25)';
-        ctx.fillRect(-3, -hh + 2, 6, this.h - 4);
+            // 眼睛 (黃色發光鴨蛋圓)
+            ctx.fillStyle = '#fce5cd';
+            ctx.shadowColor = '#f1c40f';
+            ctx.shadowBlur = 15;
+            // 左眼
+            ctx.save();
+            ctx.translate(-hw + 8, -hh + 18);
+            ctx.rotate(-Math.PI / 5);
+            ctx.beginPath();
+            ctx.ellipse(0, 0, 6, 14, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+            // 右眼
+            ctx.save();
+            ctx.translate(hw - 8, -hh + 18);
+            ctx.rotate(Math.PI / 5);
+            ctx.beginPath();
+            ctx.ellipse(0, 0, 6, 14, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+            ctx.shadowBlur = 0;
 
-        // === 擋風玻璃 ===
-        ctx.beginPath();
-        ctx.moveTo(-hw + 5, -hh + 12);
-        ctx.lineTo(hw - 5, -hh + 12);
-        ctx.lineTo(hw - 7, -hh + 28);
-        ctx.lineTo(-hw + 7, -hh + 28);
-        ctx.closePath();
-        let glassGrad = ctx.createLinearGradient(0, -hh + 12, 0, -hh + 28);
-        glassGrad.addColorStop(0, '#2c3e50');
-        glassGrad.addColorStop(1, '#1a252f');
-        ctx.fillStyle = glassGrad;
-        ctx.fill();
-        // 玻璃反光
-        ctx.fillStyle = 'rgba(100,180,255,0.2)';
-        ctx.fillRect(-hw + 7, -hh + 14, (this.w - 14) * 0.4, 6);
+            // 額頭水晶光束燈 (綠光)
+            ctx.fillStyle = '#2ecc71';
+            ctx.shadowColor = '#2ecc71';
+            ctx.shadowBlur = 8;
+            ctx.beginPath();
+            ctx.arc(0, -hh + 5, 3, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.shadowBlur = 0;
+        } else {
+            // === 一般車輛繪圖 ===
+            // === 輪胎 ===
+            ctx.fillStyle = '#1a1a1a';
+            // 前輪
+            ctx.fillRect(-hw - 4, -hh + 8, 6, 16);
+            ctx.fillRect(hw - 2, -hh + 8, 6, 16);
+            // 後輪
+            ctx.fillRect(-hw - 4, hh - 24, 6, 16);
+            ctx.fillRect(hw - 2, hh - 24, 6, 16);
+            // 輪胎高光
+            ctx.fillStyle = '#444';
+            ctx.fillRect(-hw - 3, -hh + 10, 2, 12);
+            ctx.fillRect(hw - 1, -hh + 10, 2, 12);
+            ctx.fillRect(-hw - 3, hh - 22, 2, 12);
+            ctx.fillRect(hw - 1, hh - 22, 2, 12);
 
-        // === 後擋風玻璃 ===
-        ctx.fillStyle = '#1a252f';
-        ctx.fillRect(-hw + 6, hh - 22, this.w - 12, 12);
+            // === 車身底色 (圓角) ===
+            ctx.beginPath();
+            const r = 6;
+            ctx.moveTo(-hw + r, -hh);
+            ctx.lineTo(hw - r, -hh);
+            ctx.quadraticCurveTo(hw, -hh, hw, -hh + r);
+            ctx.lineTo(hw, hh - r);
+            ctx.quadraticCurveTo(hw, hh, hw - r, hh);
+            ctx.lineTo(-hw + r, hh);
+            ctx.quadraticCurveTo(-hw, hh, -hw, hh - r);
+            ctx.lineTo(-hw, -hh + r);
+            ctx.quadraticCurveTo(-hw, -hh, -hw + r, -hh);
+            ctx.closePath();
+            ctx.fillStyle = this.color;
+            ctx.fill();
 
-        // === 前車燈 ===
-        ctx.fillStyle = '#ffffaa';
-        ctx.shadowColor = '#ffffaa';
-        ctx.shadowBlur = 8;
-        ctx.fillRect(-hw + 3, -hh + 2, 8, 5);
-        ctx.fillRect(hw - 11, -hh + 2, 8, 5);
-        ctx.shadowBlur = 0;
+            // === 金屬漸層高光 ===
+            let grad = ctx.createLinearGradient(-hw, 0, hw, 0);
+            grad.addColorStop(0, 'rgba(255,255,255,0.15)');
+            grad.addColorStop(0.4, 'rgba(255,255,255,0.05)');
+            grad.addColorStop(0.6, 'rgba(255,255,255,0.05)');
+            grad.addColorStop(1, 'rgba(0,0,0,0.15)');
+            ctx.fillStyle = grad;
+            ctx.fill();
 
-        // === 尾燈 ===
-        ctx.fillStyle = '#ff3333';
-        ctx.shadowColor = '#ff3333';
-        ctx.shadowBlur = 6;
-        ctx.fillRect(-hw + 3, hh - 6, 8, 4);
-        ctx.fillRect(hw - 11, hh - 6, 8, 4);
-        ctx.shadowBlur = 0;
+            // === 賽車條紋 ===
+            ctx.fillStyle = 'rgba(255,255,255,0.25)';
+            ctx.fillRect(-3, -hh + 2, 6, this.h - 4);
+
+            // === 擋風玻璃 ===
+            ctx.beginPath();
+            ctx.moveTo(-hw + 5, -hh + 12);
+            ctx.lineTo(hw - 5, -hh + 12);
+            ctx.lineTo(hw - 7, -hh + 28);
+            ctx.lineTo(-hw + 7, -hh + 28);
+            ctx.closePath();
+            let glassGrad = ctx.createLinearGradient(0, -hh + 12, 0, -hh + 28);
+            glassGrad.addColorStop(0, '#2c3e50');
+            glassGrad.addColorStop(1, '#1a252f');
+            ctx.fillStyle = glassGrad;
+            ctx.fill();
+            // 玻璃反光
+            ctx.fillStyle = 'rgba(100,180,255,0.2)';
+            ctx.fillRect(-hw + 7, -hh + 14, (this.w - 14) * 0.4, 6);
+
+            // === 後擋風玻璃 ===
+            ctx.fillStyle = '#1a252f';
+            ctx.fillRect(-hw + 6, hh - 22, this.w - 12, 12);
+
+            // === 前車燈 ===
+            ctx.fillStyle = '#ffffaa';
+            ctx.shadowColor = '#ffffaa';
+            ctx.shadowBlur = 8;
+            ctx.fillRect(-hw + 3, -hh + 2, 8, 5);
+            ctx.fillRect(hw - 11, -hh + 2, 8, 5);
+            ctx.shadowBlur = 0;
+
+            // === 尾燈 ===
+            ctx.fillStyle = '#ff3333';
+            ctx.shadowColor = '#ff3333';
+            ctx.shadowBlur = 6;
+            ctx.fillRect(-hw + 3, hh - 6, 8, 4);
+            ctx.fillRect(hw - 11, hh - 6, 8, 4);
+            ctx.shadowBlur = 0;
+        }
 
         // === 護盾效果 ===
         if (this.shieldTimer > 0) {
@@ -1131,7 +1191,7 @@ document.getElementById('restart-btn').addEventListener('click', () => {
 // ==========================================
 // 選單車輛預覽 (Canvas 版)
 // ==========================================
-function drawCarPreview(canvasId, color, carW, carH) {
+function drawCarPreview(canvasId, carType, color, carW, carH) {
     const c = document.getElementById(canvasId);
     if (!c) return;
     const ctx = c.getContext('2d');
@@ -1145,88 +1205,147 @@ function drawCarPreview(canvasId, color, carW, carH) {
     ctx.save();
     ctx.translate(cx, cy);
 
-    // 輪胎
-    ctx.fillStyle = '#1a1a1a';
-    ctx.fillRect(-hw - 4, -hh + 8, 6, 14);
-    ctx.fillRect(hw - 2, -hh + 8, 6, 14);
-    ctx.fillRect(-hw - 4, hh - 22, 6, 14);
-    ctx.fillRect(hw - 2, hh - 22, 6, 14);
-    // 輪胎高光
-    ctx.fillStyle = '#444';
-    ctx.fillRect(-hw - 3, -hh + 10, 2, 10);
-    ctx.fillRect(hw - 1, -hh + 10, 2, 10);
-    ctx.fillRect(-hw - 3, hh - 20, 2, 10);
-    ctx.fillRect(hw - 1, hh - 20, 2, 10);
+    if (carType === 'ultraman') {
+        // 頭部基底 (銀灰色漸層)
+        let headGrad = ctx.createRadialGradient(0, 0, 5, 0, 0, hh);
+        headGrad.addColorStop(0, '#ffffff');
+        headGrad.addColorStop(1, '#bdc3c7');
+        ctx.fillStyle = headGrad;
+        ctx.beginPath();
+        ctx.ellipse(0, 0, hw, hh, 0, 0, Math.PI * 2);
+        ctx.fill();
 
-    // 車身 (圓角)
-    const r = 5;
-    ctx.beginPath();
-    ctx.moveTo(-hw + r, -hh);
-    ctx.lineTo(hw - r, -hh);
-    ctx.quadraticCurveTo(hw, -hh, hw, -hh + r);
-    ctx.lineTo(hw, hh - r);
-    ctx.quadraticCurveTo(hw, hh, hw - r, hh);
-    ctx.lineTo(-hw + r, hh);
-    ctx.quadraticCurveTo(-hw, hh, -hw, hh - r);
-    ctx.lineTo(-hw, -hh + r);
-    ctx.quadraticCurveTo(-hw, -hh, -hw + r, -hh);
-    ctx.closePath();
-    ctx.fillStyle = color;
-    ctx.fill();
+        // 兩側耳朵/耳機紋路
+        ctx.fillStyle = '#7f8c8d';
+        ctx.fillRect(-hw - 2, -3, 4, 12);
+        ctx.fillRect(hw - 2, -3, 4, 12);
 
-    // 金屬漸層
-    let grad = ctx.createLinearGradient(-hw, 0, hw, 0);
-    grad.addColorStop(0, 'rgba(255,255,255,0.2)');
-    grad.addColorStop(0.4, 'rgba(255,255,255,0.05)');
-    grad.addColorStop(0.6, 'rgba(255,255,255,0.05)');
-    grad.addColorStop(1, 'rgba(0,0,0,0.2)');
-    ctx.fillStyle = grad;
-    ctx.fill();
+        // 頭頂紅色頭冠 (Crest)
+        ctx.fillStyle = '#e74c3c';
+        ctx.beginPath();
+        ctx.moveTo(-4, -hh);
+        ctx.lineTo(4, -hh);
+        ctx.lineTo(2, 6);
+        ctx.lineTo(-2, 6);
+        ctx.closePath();
+        ctx.fill();
 
-    // 賽車條紋
-    ctx.fillStyle = 'rgba(255,255,255,0.2)';
-    ctx.fillRect(-2, -hh + 2, 4, carH - 4);
+        // 眼睛 (黃色發光鴨蛋圓)
+        ctx.fillStyle = '#fce5cd';
+        ctx.shadowColor = '#f1c40f';
+        ctx.shadowBlur = 15;
+        // 左眼
+        ctx.save();
+        ctx.translate(-hw + 8, -hh + 18);
+        ctx.rotate(-Math.PI / 5);
+        ctx.beginPath();
+        ctx.ellipse(0, 0, 6, 14, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+        // 右眼
+        ctx.save();
+        ctx.translate(hw - 8, -hh + 18);
+        ctx.rotate(Math.PI / 5);
+        ctx.beginPath();
+        ctx.ellipse(0, 0, 6, 14, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+        ctx.shadowBlur = 0;
 
-    // 擋風玻璃
-    ctx.beginPath();
-    ctx.moveTo(-hw + 4, -hh + 10);
-    ctx.lineTo(hw - 4, -hh + 10);
-    ctx.lineTo(hw - 6, -hh + 24);
-    ctx.lineTo(-hw + 6, -hh + 24);
-    ctx.closePath();
-    let glassGrad = ctx.createLinearGradient(0, -hh + 10, 0, -hh + 24);
-    glassGrad.addColorStop(0, '#2c3e50');
-    glassGrad.addColorStop(1, '#1a252f');
-    ctx.fillStyle = glassGrad;
-    ctx.fill();
-    // 玻璃反光
-    ctx.fillStyle = 'rgba(100,180,255,0.25)';
-    ctx.fillRect(-hw + 6, -hh + 12, (carW - 12) * 0.4, 5);
+        // 額頭水晶光束燈 (綠光)
+        ctx.fillStyle = '#2ecc71';
+        ctx.shadowColor = '#2ecc71';
+        ctx.shadowBlur = 8;
+        ctx.beginPath();
+        ctx.arc(0, -hh + 5, 3, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.shadowBlur = 0;
+    } else {
 
-    // 後擋風玻璃
-    ctx.fillStyle = '#1a252f';
-    ctx.fillRect(-hw + 5, hh - 20, carW - 10, 10);
+        // 輪胎
+        ctx.fillStyle = '#1a1a1a';
+        ctx.fillRect(-hw - 4, -hh + 8, 6, 14);
+        ctx.fillRect(hw - 2, -hh + 8, 6, 14);
+        ctx.fillRect(-hw - 4, hh - 22, 6, 14);
+        ctx.fillRect(hw - 2, hh - 22, 6, 14);
+        // 輪胎高光
+        ctx.fillStyle = '#444';
+        ctx.fillRect(-hw - 3, -hh + 10, 2, 10);
+        ctx.fillRect(hw - 1, -hh + 10, 2, 10);
+        ctx.fillRect(-hw - 3, hh - 20, 2, 10);
+        ctx.fillRect(hw - 1, hh - 20, 2, 10);
 
-    // 前車燈
-    ctx.fillStyle = '#ffffaa';
-    ctx.shadowColor = '#ffffaa';
-    ctx.shadowBlur = 8;
-    ctx.fillRect(-hw + 3, -hh + 2, 7, 4);
-    ctx.fillRect(hw - 10, -hh + 2, 7, 4);
-    ctx.shadowBlur = 0;
+        // 車身 (圓角)
+        const r = 5;
+        ctx.beginPath();
+        ctx.moveTo(-hw + r, -hh);
+        ctx.lineTo(hw - r, -hh);
+        ctx.quadraticCurveTo(hw, -hh, hw, -hh + r);
+        ctx.lineTo(hw, hh - r);
+        ctx.quadraticCurveTo(hw, hh, hw - r, hh);
+        ctx.lineTo(-hw + r, hh);
+        ctx.quadraticCurveTo(-hw, hh, -hw, hh - r);
+        ctx.lineTo(-hw, -hh + r);
+        ctx.quadraticCurveTo(-hw, -hh, -hw + r, -hh);
+        ctx.closePath();
+        ctx.fillStyle = color;
+        ctx.fill();
 
-    // 尾燈
-    ctx.fillStyle = '#ff3333';
-    ctx.shadowColor = '#ff3333';
-    ctx.shadowBlur = 6;
-    ctx.fillRect(-hw + 3, hh - 5, 7, 3);
-    ctx.fillRect(hw - 10, hh - 5, 7, 3);
-    ctx.shadowBlur = 0;
+        // 金屬漸層
+        let grad = ctx.createLinearGradient(-hw, 0, hw, 0);
+        grad.addColorStop(0, 'rgba(255,255,255,0.2)');
+        grad.addColorStop(0.4, 'rgba(255,255,255,0.05)');
+        grad.addColorStop(0.6, 'rgba(255,255,255,0.05)');
+        grad.addColorStop(1, 'rgba(0,0,0,0.2)');
+        ctx.fillStyle = grad;
+        ctx.fill();
 
+        // 賽車條紋
+        ctx.fillStyle = 'rgba(255,255,255,0.2)';
+        ctx.fillRect(-2, -hh + 2, 4, carH - 4);
+
+        // 擋風玻璃
+        ctx.beginPath();
+        ctx.moveTo(-hw + 4, -hh + 10);
+        ctx.lineTo(hw - 4, -hh + 10);
+        ctx.lineTo(hw - 6, -hh + 24);
+        ctx.lineTo(-hw + 6, -hh + 24);
+        ctx.closePath();
+        let glassGrad = ctx.createLinearGradient(0, -hh + 10, 0, -hh + 24);
+        glassGrad.addColorStop(0, '#2c3e50');
+        glassGrad.addColorStop(1, '#1a252f');
+        ctx.fillStyle = glassGrad;
+        ctx.fill();
+        // 玻璃反光
+        ctx.fillStyle = 'rgba(100,180,255,0.25)';
+        ctx.fillRect(-hw + 6, -hh + 12, (carW - 12) * 0.4, 5);
+
+        // 後擋風玻璃
+        ctx.fillStyle = '#1a252f';
+        ctx.fillRect(-hw + 5, hh - 20, carW - 10, 10);
+
+        // 前車燈
+        ctx.fillStyle = '#ffffaa';
+        ctx.shadowColor = '#ffffaa';
+        ctx.shadowBlur = 8;
+        ctx.fillRect(-hw + 3, -hh + 2, 7, 4);
+        ctx.fillRect(hw - 10, -hh + 2, 7, 4);
+        ctx.shadowBlur = 0;
+
+        // 尾燈
+        ctx.fillStyle = '#ff3333';
+        ctx.shadowColor = '#ff3333';
+        ctx.shadowBlur = 6;
+        ctx.fillRect(-hw + 3, hh - 5, 7, 3);
+        ctx.fillRect(hw - 10, hh - 5, 7, 3);
+        ctx.shadowBlur = 0;
+
+    }
     ctx.restore();
 }
 
-// 畫三台預覽車
-drawCarPreview('preview-balanced', '#3498db', 32, 56);
-drawCarPreview('preview-heavy', '#e67e22', 38, 64);
-drawCarPreview('preview-sports', '#e74c3c', 28, 52);
+// 畫全預覽車
+drawCarPreview('preview-balanced', 'balanced', '#3498db', 32, 56);
+drawCarPreview('preview-heavy', 'heavy', '#e67e22', 38, 64);
+drawCarPreview('preview-sports', 'sports', '#e74c3c', 28, 52);
+drawCarPreview('preview-ultraman', 'ultraman', '#ecf0f1', 36, 56);
