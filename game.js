@@ -17,6 +17,7 @@ const hud = {
     time: document.getElementById('hud-time'),
     dist: document.getElementById('hud-dist'),
     speed: document.getElementById('hud-speed'),
+    maxspd: document.getElementById('hud-maxspd'),
     ammo: document.getElementById('hud-ammo'),
     coins: document.getElementById('hud-coins')
 };
@@ -1053,6 +1054,7 @@ function updateHUD() {
         GameState.maxRecordedSpeed = kmh; // 記錄最高時速
     }
     hud.speed.innerText = kmh;
+    hud.maxspd.innerText = Math.round(player.baseMaxSpeed * 12);
     hud.ammo.innerText = 'Lv.' + player.missileLevel;
     hud.coins.innerText = GameState.coins;
     // Time 放在 loop 裡面跑
