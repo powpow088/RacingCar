@@ -50,7 +50,7 @@ let GameState = {
     lastFrameTime: 0,
 
     keys: { ArrowLeft: false, ArrowRight: false, ArrowUp: false, ArrowDown: false, Space: false, w: false, a: false, s: false, d: false },
-    touch: { left: false, right: false, brake: false, isMobile: false },
+    touch: { left: false, right: false, brake: false, accel: false, isMobile: false },
 
     offsetY: 0 // 背景捲動
 };
@@ -70,6 +70,8 @@ document.getElementById('btn-fire').addEventListener('touchstart', (e) => {
     e.preventDefault();
     if (GameState.isRunning) player.fireMissile();
 });
+document.getElementById('btn-accel').addEventListener('touchstart', (e) => { e.preventDefault(); GameState.touch.accel = true; GameState.touch.isMobile = true; });
+document.getElementById('btn-accel').addEventListener('touchend', (e) => { e.preventDefault(); GameState.touch.accel = false; });
 
 
 // Resize Canvas
@@ -148,9 +150,11 @@ class Player extends Entity {
         if (GameState.keys['ArrowLeft'] || GameState.keys['a']) turn = -1;
         if (GameState.keys['ArrowRight'] || GameState.keys['d']) turn = 1;
 
-        // 手機預設常駐油門，除非按煞車
+        // 手機觸控 (由 user 決定是否加速)
         if (GameState.touch.isMobile) {
-            thrust = GameState.touch.brake ? -1 : 1;
+            if (GameState.touch.brake) thrust = -1;
+            else if (GameState.touch.accel) thrust = 1;
+            else thrust = 0; // 不加速也不煞車 → 保持等速巡航
             if (GameState.touch.left) turn = -1;
             if (GameState.touch.right) turn = 1;
         }
@@ -165,9 +169,17 @@ class Player extends Entity {
         // --- 物理系統 ---
         // 縱向加速 - 每台車有獨立的加速度數值
         if (thrust > 0) {
-            this.vy -= this.accel; // 向前 (Canvas Y負向)
+            this.vy -= this.accel; // 向前加速 (Canvas Y負向)
+            this.isAccelerating = true;
         } else if (thrust < 0) {
             this.vy += 0.5; // 煞車
+            this.isAccelerating = false;
+        } else {
+            // 無油門：緩慢自動巡航 (非常慢的加速)
+            if (this.vy > -this.maxSpeed * 0.4) {
+                this.vy -= this.accel * 0.08;
+            }
+            this.isAccelerating = false;
         }
 
         // 橫向控制 (甩尾慣性實作)
@@ -338,29 +350,33 @@ class Player extends Entity {
             ctx.lineTo(hw + 1, hh * 0.2);
             ctx.fill();
 
-            // --- 中央脊鰭 (更立體、不那麼突兀) ---
+            // --- 中央脊鰭 (更高、往眼睛中間變細) ---
             // 鰭的陰影
             ctx.fillStyle = '#95a5a6';
             ctx.beginPath();
-            ctx.moveTo(0, -hh - 6);
-            ctx.lineTo(-4, hh * 0.1);
-            ctx.lineTo(4, hh * 0.1);
+            ctx.moveTo(0, -hh - 14);
+            ctx.lineTo(-5, -hh * 0.5);
+            ctx.lineTo(-1.5, hh * 0.05);
+            ctx.lineTo(1.5, hh * 0.05);
+            ctx.lineTo(5, -hh * 0.5);
             ctx.closePath();
             ctx.fill();
             // 鰭主體 (亮銀色)
             ctx.fillStyle = '#dfe6e9';
             ctx.beginPath();
-            ctx.moveTo(0, -hh - 5);
-            ctx.lineTo(-2, hh * 0.08);
-            ctx.lineTo(2, hh * 0.08);
+            ctx.moveTo(0, -hh - 12);
+            ctx.lineTo(-3.5, -hh * 0.5);
+            ctx.lineTo(-1, hh * 0.03);
+            ctx.lineTo(1, hh * 0.03);
+            ctx.lineTo(3.5, -hh * 0.5);
             ctx.closePath();
             ctx.fill();
             // 鰭高光
             ctx.fillStyle = 'rgba(255,255,255,0.7)';
             ctx.beginPath();
-            ctx.moveTo(0, -hh - 3);
-            ctx.lineTo(-0.8, hh * 0.05);
-            ctx.lineTo(0.8, hh * 0.05);
+            ctx.moveTo(0, -hh - 10);
+            ctx.lineTo(-0.5, hh * 0.01);
+            ctx.lineTo(0.5, hh * 0.01);
             ctx.closePath();
             ctx.fill();
 
@@ -504,6 +520,28 @@ class Player extends Entity {
             ctx.ellipse(0, 0, hw + 10, hh + 10, 0, 0, Math.PI * 2);
             ctx.stroke();
             ctx.fillStyle = 'rgba(0, 210, 211, 0.1)';
+            ctx.fill();
+            ctx.shadowBlur = 0;
+        }
+
+        // === 加速噴射特效 ===
+        if (this.isAccelerating && this.vy < -1) {
+            ctx.shadowColor = '#3498db';
+            ctx.shadowBlur = 8;
+            ctx.fillStyle = '#74b9ff';
+            // 左噴射
+            ctx.beginPath();
+            ctx.moveTo(-hw + 6, hh);
+            ctx.lineTo(-hw + 14, hh);
+            ctx.lineTo(-hw + 10, hh + 8 + Math.random() * 10);
+            ctx.closePath();
+            ctx.fill();
+            // 右噴射
+            ctx.beginPath();
+            ctx.moveTo(hw - 14, hh);
+            ctx.lineTo(hw - 6, hh);
+            ctx.lineTo(hw - 10, hh + 8 + Math.random() * 10);
+            ctx.closePath();
             ctx.fill();
             ctx.shadowBlur = 0;
         }
@@ -1336,19 +1374,23 @@ function drawCarPreview(canvasId, carType, color, carW, carH) {
         ctx.lineTo(hw + 1, hh * 0.2);
         ctx.fill();
 
-        // 中央脊鰭
+        // 中央脊鰭 (更高、往眼睛中間變細)
         ctx.fillStyle = '#95a5a6';
         ctx.beginPath();
-        ctx.moveTo(0, -hh - 6);
-        ctx.lineTo(-4, hh * 0.1);
-        ctx.lineTo(4, hh * 0.1);
+        ctx.moveTo(0, -hh - 14);
+        ctx.lineTo(-5, -hh * 0.5);
+        ctx.lineTo(-1.5, hh * 0.05);
+        ctx.lineTo(1.5, hh * 0.05);
+        ctx.lineTo(5, -hh * 0.5);
         ctx.closePath();
         ctx.fill();
         ctx.fillStyle = '#dfe6e9';
         ctx.beginPath();
-        ctx.moveTo(0, -hh - 5);
-        ctx.lineTo(-2, hh * 0.08);
-        ctx.lineTo(2, hh * 0.08);
+        ctx.moveTo(0, -hh - 12);
+        ctx.lineTo(-3.5, -hh * 0.5);
+        ctx.lineTo(-1, hh * 0.03);
+        ctx.lineTo(1, hh * 0.03);
+        ctx.lineTo(3.5, -hh * 0.5);
         ctx.closePath();
         ctx.fill();
 
