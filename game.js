@@ -1049,11 +1049,13 @@ function updateHUD() {
     hud.hp.innerText = player.hp;
     hud.dist.innerText = Math.floor(GameState.dist);
     // 加上基礎速度與稍微調整顯示比例，讓時速變化更符合一般認知
-    let kmh = Math.round(Math.abs(player.vy) * 12);
-    if (kmh > GameState.maxRecordedSpeed) {
-        GameState.maxRecordedSpeed = kmh; // 記錄最高時速
+    // vy < 0 = 前進, vy > 0 = 後退
+    let rawKmh = Math.round(player.vy * -12); // 前進為正，後退為負
+    let absKmh = Math.abs(rawKmh);
+    if (absKmh > GameState.maxRecordedSpeed) {
+        GameState.maxRecordedSpeed = absKmh; // 記錄最高時速
     }
-    hud.speed.innerText = kmh;
+    hud.speed.innerText = rawKmh;
     hud.maxspd.innerText = Math.round(player.baseMaxSpeed * 12);
     hud.ammo.innerText = 'Lv.' + player.missileLevel;
     hud.coins.innerText = GameState.coins;
