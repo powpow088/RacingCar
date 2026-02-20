@@ -202,7 +202,7 @@ class Player extends Entity {
         if (this.boostTimer > 0) currentMaxSpeed *= 2; // 衝刺期間兩倍速
 
         if (this.vy < -currentMaxSpeed) this.vy = -currentMaxSpeed;
-        if (this.vy > currentMaxSpeed / 2) this.vy = currentMaxSpeed / 2; // 倒車慢一點
+        if (this.vy > 2.5) this.vy = 2.5; // 後退最高 30 km/h
 
         // 邊界碰撞限制 (不扣血，單純阻擋)
         this.x += this.vx;
