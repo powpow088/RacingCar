@@ -264,7 +264,7 @@ class Player extends Entity {
             missiles.push(new Missile(this.x, this.y, 1));
             missiles.push(new Missile(this.x + this.w - 10, this.y, 1));
         } else if (GameState.carType === 'ultraman' && this.missileLevel >= 3) {
-            // Lv3 奧特曼專屬: 斯佩修姆光線 (Spacium Beam)
+            // Lv3 奧特曼專屬: 斯佩修姆光線 + 散彈齊發
             let beam = new Missile(this.x + this.w / 2 - 15, this.y - 10, 3);
             beam.w = 30;
             beam.h = 80;
@@ -272,6 +272,13 @@ class Player extends Entity {
             beam.vy = -18;
             beam.damage = 5;
             missiles.push(beam);
+            // 加上散彈
+            for (let angle = -0.3; angle <= 0.3; angle += 0.15) {
+                let m = new Missile(this.x + this.w / 2 - 5, this.y, 3);
+                m.vx = Math.sin(angle) * 8;
+                m.vy = -12 - Math.abs(angle) * 3;
+                missiles.push(m);
+            }
         } else {
             // Lv3: 散彈效果 (5 發扇形展開)
             for (let angle = -0.3; angle <= 0.3; angle += 0.15) {
@@ -299,15 +306,13 @@ class Player extends Entity {
         const hh = this.h / 2;
 
         if (GameState.carType === 'ultraman') {
-            // ====== 初代奧特曼 - 只畫頭部 ======
+            // ====== 初代奧特曼 - 頭部 ======
 
-            // --- 銀色橢圓頭部 (填滿整個 sprite) ---
-            // 外圈陰影
+            // --- 銀色橢圓頭部 ---
             ctx.fillStyle = '#636e72';
             ctx.beginPath();
             ctx.ellipse(0, 0, hw + 2, hh + 2, 0, 0, Math.PI * 2);
             ctx.fill();
-            // 頭部主體漸層
             let headG = ctx.createRadialGradient(-3, -hh * 0.2, 2, 0, 0, hh * 1.1);
             headG.addColorStop(0, '#ffffff');
             headG.addColorStop(0.35, '#ecf0f1');
@@ -318,58 +323,61 @@ class Player extends Entity {
             ctx.ellipse(0, 0, hw, hh, 0, 0, Math.PI * 2);
             ctx.fill();
 
-            // --- 中央脊鰭 (從頭頂延伸到鼻子之間) ---
-            // 鰭的陰影
+            // --- 下巴 (銀灰色平底, 不是橢圓) ---
             ctx.fillStyle = '#95a5a6';
             ctx.beginPath();
-            ctx.moveTo(0, -hh - 4);
-            ctx.lineTo(-5, hh * 0.15);
-            ctx.lineTo(5, hh * 0.15);
-            ctx.closePath();
-            ctx.fill();
-            // 鰭主體 (亮銀色)
-            ctx.fillStyle = '#dfe6e9';
-            ctx.beginPath();
-            ctx.moveTo(0, -hh - 3);
-            ctx.lineTo(-3, hh * 0.1);
-            ctx.lineTo(3, hh * 0.1);
-            ctx.closePath();
-            ctx.fill();
-            // 鰭高光
-            ctx.fillStyle = 'rgba(255,255,255,0.7)';
-            ctx.beginPath();
-            ctx.moveTo(0, -hh - 1);
-            ctx.lineTo(-1, hh * 0.05);
-            ctx.lineTo(1, hh * 0.05);
+            ctx.moveTo(-hw * 0.45, hh * 0.7);
+            ctx.lineTo(hw * 0.45, hh * 0.7);
+            ctx.lineTo(hw * 0.25, hh);
+            ctx.lineTo(-hw * 0.25, hh);
             ctx.closePath();
             ctx.fill();
 
-            // --- 大黃色發光眼睛 (往外斜的橢圓) ---
-            ctx.shadowColor = '#f1c40f';
-            ctx.shadowBlur = 20;
-            // 左眼
+            // --- 中央脊鰭 (更高更突出) ---
+            ctx.fillStyle = '#95a5a6';
+            ctx.beginPath();
+            ctx.moveTo(0, -hh - 14);
+            ctx.lineTo(-6, hh * 0.15);
+            ctx.lineTo(6, hh * 0.15);
+            ctx.closePath();
+            ctx.fill();
+            ctx.fillStyle = '#dfe6e9';
+            ctx.beginPath();
+            ctx.moveTo(0, -hh - 12);
+            ctx.lineTo(-4, hh * 0.1);
+            ctx.lineTo(4, hh * 0.1);
+            ctx.closePath();
+            ctx.fill();
+            ctx.fillStyle = 'rgba(255,255,255,0.6)';
+            ctx.beginPath();
+            ctx.moveTo(0, -hh - 10);
+            ctx.lineTo(-1.5, hh * 0.05);
+            ctx.lineTo(1.5, hh * 0.05);
+            ctx.closePath();
+            ctx.fill();
+
+            // --- 黃色眼睛 (較暗的色調) ---
+            ctx.shadowColor = '#c29d0b';
+            ctx.shadowBlur = 10;
             ctx.save();
             ctx.translate(-hw * 0.42, -hh * 0.15);
             ctx.rotate(-Math.PI / 4);
             let eg1 = ctx.createRadialGradient(0, 0, 0, 0, 0, 12);
-            eg1.addColorStop(0, '#ffffff');
-            eg1.addColorStop(0.3, '#fffde7');
-            eg1.addColorStop(0.7, '#f9e547');
-            eg1.addColorStop(1, '#f39c12');
+            eg1.addColorStop(0, '#f5e6b8');
+            eg1.addColorStop(0.4, '#d4a817');
+            eg1.addColorStop(1, '#b8860b');
             ctx.fillStyle = eg1;
             ctx.beginPath();
             ctx.ellipse(0, 0, 6, 14, 0, 0, Math.PI * 2);
             ctx.fill();
             ctx.restore();
-            // 右眼
             ctx.save();
             ctx.translate(hw * 0.42, -hh * 0.15);
             ctx.rotate(Math.PI / 4);
             let eg2 = ctx.createRadialGradient(0, 0, 0, 0, 0, 12);
-            eg2.addColorStop(0, '#ffffff');
-            eg2.addColorStop(0.3, '#fffde7');
-            eg2.addColorStop(0.7, '#f9e547');
-            eg2.addColorStop(1, '#f39c12');
+            eg2.addColorStop(0, '#f5e6b8');
+            eg2.addColorStop(0.4, '#d4a817');
+            eg2.addColorStop(1, '#b8860b');
             ctx.fillStyle = eg2;
             ctx.beginPath();
             ctx.ellipse(0, 0, 6, 14, 0, 0, Math.PI * 2);
@@ -377,19 +385,13 @@ class Player extends Entity {
             ctx.restore();
             ctx.shadowBlur = 0;
 
-            // --- 嘴巴 (微笑弧線) ---
+            // --- 嘴巴 ---
             ctx.strokeStyle = '#636e72';
             ctx.lineWidth = 1.5;
             ctx.beginPath();
-            ctx.moveTo(-hw * 0.35, hh * 0.45);
-            ctx.quadraticCurveTo(0, hh * 0.58, hw * 0.35, hh * 0.45);
+            ctx.moveTo(-hw * 0.3, hh * 0.45);
+            ctx.quadraticCurveTo(0, hh * 0.55, hw * 0.3, hh * 0.45);
             ctx.stroke();
-
-            // --- 下巴紅色區域 (下巴到脖子交界處微露紅色) ---
-            ctx.fillStyle = '#e74c3c';
-            ctx.beginPath();
-            ctx.ellipse(0, hh * 0.85, hw * 0.5, hh * 0.2, 0, 0, Math.PI);
-            ctx.fill();
 
         } else {
             // === 一般車輛繪圖 ===
@@ -1285,14 +1287,12 @@ function drawCarPreview(canvasId, carType, color, carW, carH) {
     ctx.translate(cx, cy);
 
     if (carType === 'ultraman') {
-        // ====== 初代奧特曼 - 只畫頭部 (預覽) ======
+        // ====== 初代奧特曼 - 頭部 (預覽) ======
 
-        // 外圈陰影
         ctx.fillStyle = '#636e72';
         ctx.beginPath();
         ctx.ellipse(0, 0, hw + 2, hh + 2, 0, 0, Math.PI * 2);
         ctx.fill();
-        // 頭部主體漸層
         let headG = ctx.createRadialGradient(-3, -hh * 0.2, 2, 0, 0, hh * 1.1);
         headG.addColorStop(0, '#ffffff');
         headG.addColorStop(0.35, '#ecf0f1');
@@ -1303,33 +1303,42 @@ function drawCarPreview(canvasId, carType, color, carW, carH) {
         ctx.ellipse(0, 0, hw, hh, 0, 0, Math.PI * 2);
         ctx.fill();
 
-        // 中央脊鰭
+        // 下巴
         ctx.fillStyle = '#95a5a6';
         ctx.beginPath();
-        ctx.moveTo(0, -hh - 4);
-        ctx.lineTo(-5, hh * 0.15);
-        ctx.lineTo(5, hh * 0.15);
+        ctx.moveTo(-hw * 0.45, hh * 0.7);
+        ctx.lineTo(hw * 0.45, hh * 0.7);
+        ctx.lineTo(hw * 0.25, hh);
+        ctx.lineTo(-hw * 0.25, hh);
+        ctx.closePath();
+        ctx.fill();
+
+        // 脊鰭 (更高)
+        ctx.fillStyle = '#95a5a6';
+        ctx.beginPath();
+        ctx.moveTo(0, -hh - 14);
+        ctx.lineTo(-6, hh * 0.15);
+        ctx.lineTo(6, hh * 0.15);
         ctx.closePath();
         ctx.fill();
         ctx.fillStyle = '#dfe6e9';
         ctx.beginPath();
-        ctx.moveTo(0, -hh - 3);
-        ctx.lineTo(-3, hh * 0.1);
-        ctx.lineTo(3, hh * 0.1);
+        ctx.moveTo(0, -hh - 12);
+        ctx.lineTo(-4, hh * 0.1);
+        ctx.lineTo(4, hh * 0.1);
         ctx.closePath();
         ctx.fill();
 
-        // 大黃色發光眼睛
-        ctx.shadowColor = '#f1c40f';
-        ctx.shadowBlur = 20;
+        // 眼睛 (暗色調)
+        ctx.shadowColor = '#c29d0b';
+        ctx.shadowBlur = 10;
         ctx.save();
         ctx.translate(-hw * 0.42, -hh * 0.15);
         ctx.rotate(-Math.PI / 4);
         let eg1 = ctx.createRadialGradient(0, 0, 0, 0, 0, 12);
-        eg1.addColorStop(0, '#ffffff');
-        eg1.addColorStop(0.3, '#fffde7');
-        eg1.addColorStop(0.7, '#f9e547');
-        eg1.addColorStop(1, '#f39c12');
+        eg1.addColorStop(0, '#f5e6b8');
+        eg1.addColorStop(0.4, '#d4a817');
+        eg1.addColorStop(1, '#b8860b');
         ctx.fillStyle = eg1;
         ctx.beginPath();
         ctx.ellipse(0, 0, 6, 14, 0, 0, Math.PI * 2);
@@ -1339,10 +1348,9 @@ function drawCarPreview(canvasId, carType, color, carW, carH) {
         ctx.translate(hw * 0.42, -hh * 0.15);
         ctx.rotate(Math.PI / 4);
         let eg2 = ctx.createRadialGradient(0, 0, 0, 0, 0, 12);
-        eg2.addColorStop(0, '#ffffff');
-        eg2.addColorStop(0.3, '#fffde7');
-        eg2.addColorStop(0.7, '#f9e547');
-        eg2.addColorStop(1, '#f39c12');
+        eg2.addColorStop(0, '#f5e6b8');
+        eg2.addColorStop(0.4, '#d4a817');
+        eg2.addColorStop(1, '#b8860b');
         ctx.fillStyle = eg2;
         ctx.beginPath();
         ctx.ellipse(0, 0, 6, 14, 0, 0, Math.PI * 2);
@@ -1354,15 +1362,9 @@ function drawCarPreview(canvasId, carType, color, carW, carH) {
         ctx.strokeStyle = '#636e72';
         ctx.lineWidth = 1.5;
         ctx.beginPath();
-        ctx.moveTo(-hw * 0.35, hh * 0.45);
-        ctx.quadraticCurveTo(0, hh * 0.58, hw * 0.35, hh * 0.45);
+        ctx.moveTo(-hw * 0.3, hh * 0.45);
+        ctx.quadraticCurveTo(0, hh * 0.55, hw * 0.3, hh * 0.45);
         ctx.stroke();
-
-        // 下巴紅色
-        ctx.fillStyle = '#e74c3c';
-        ctx.beginPath();
-        ctx.ellipse(0, hh * 0.85, hw * 0.5, hh * 0.2, 0, 0, Math.PI);
-        ctx.fill();
 
     } else {
 
