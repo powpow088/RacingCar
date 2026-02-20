@@ -190,7 +190,7 @@ class Player extends Entity {
         if (this.isAccelerating || thrust < 0) {
             this.vy *= this.drag;
         } else {
-            this.vy *= 0.999; // 極輕阻力，速度幾乎不掉
+            this.vy *= 0.99997; // 極輕阻力，約 6 秒掉 1 km/h
         }
         // 橫向阻力比縱向大，除非處於冰原等打滑狀態。
         // driftInertia 越大，橫向速度衰減越慢(越滑)
