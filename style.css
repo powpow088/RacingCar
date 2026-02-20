@@ -35,6 +35,9 @@ body {
     align-items: center;
     background: #1a1a2e;
     z-index: 10;
+    overflow-y: auto;
+    /* 允許小螢幕滾動 */
+    padding: 20px 0;
 }
 
 .screen.active {
@@ -222,7 +225,10 @@ canvas {
     left: 10px;
     right: 10px;
     display: flex;
+    flex-wrap: wrap;
+    /* 允許換行以適應手機小螢幕 */
     justify-content: space-between;
+    gap: 5px;
     pointer-events: none;
     z-index: 20;
     font-weight: bold;
@@ -277,14 +283,14 @@ canvas {
 /* 虛擬按鍵 (Mobile) */
 #virtual-controls {
     position: absolute;
-    bottom: 20px;
+    bottom: 10px;
     left: 0;
     width: 100%;
     display: none;
     /* 預設隱藏，若偵測到觸控才顯示 */
     flex-direction: column;
-    gap: 15px;
-    padding: 0 20px;
+    gap: 10px;
+    padding: 0 10px;
     z-index: 20;
 }
 
@@ -299,8 +305,8 @@ canvas {
 }
 
 .v-btn {
-    background: rgba(255, 255, 255, 0.2);
-    border: 2px solid rgba(255, 255, 255, 0.5);
+    background: rgba(255, 255, 255, 0.1);
+    border: 2px solid rgba(255, 255, 255, 0.3);
     border-radius: 50%;
     color: white;
     font-weight: bold;
@@ -328,17 +334,22 @@ canvas {
     height: 80px;
     border-radius: 10px;
     font-size: 1rem;
-    background: rgba(233, 69, 96, 0.3);
-    border-color: rgba(233, 69, 96, 0.8);
+    background: rgba(233, 69, 96, 0.15);
+    border-color: rgba(233, 69, 96, 0.4);
 }
 
 .v-btn.action {
     width: 100%;
-    height: 60px;
+    height: 50px;
     border-radius: 10px;
     font-size: 1.2rem;
-    background: rgba(0, 210, 211, 0.3);
-    border-color: rgba(0, 210, 211, 0.8);
+    background: rgba(0, 210, 211, 0.15);
+    border-color: rgba(0, 210, 211, 0.4);
+}
+
+/* 強制顯示控制按鈕的選項 class */
+#virtual-controls.force-show {
+    display: flex;
 }
 
 @media (hover: none) and (pointer: coarse) {

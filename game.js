@@ -103,8 +103,8 @@ class Entity {
 
 class Player extends Entity {
     constructor() {
-        // 車子放在畫面更下方
-        super(canvas.width / 2 - 20, canvas.height - 120, 40, 70);
+        // 車子放在畫面稍微高一點的地方，避免被下方虛擬按鍵擋住
+        super(canvas.width / 2 - 20, canvas.height - 220, 40, 70);
         this.resetStats();
     }
 
@@ -130,7 +130,7 @@ class Player extends Entity {
         this.boostTimer = 0;
 
         this.x = canvas.width / 2 - this.w;
-        this.y = canvas.height - 120;
+        this.y = canvas.height - 220;
         this.vx = 0;
         this.vy = 0;
     }
@@ -203,10 +203,10 @@ class Player extends Entity {
         // 背景往下捲，跟車流往下的速度會與這個基準掛勾
         GameState.offsetY -= this.vy;
 
-        // 只允許玩家在畫布下半部稍微移動（更低位置）
+        // 只允許玩家在畫布下半部稍微移動（更低位置，但不被按鈕遮擋）
         this.y += this.vy * 0.1;
-        if (this.y > canvas.height - 80) this.y = canvas.height - 80;
-        if (this.y < canvas.height - 250) this.y = canvas.height - 250;
+        if (this.y > canvas.height - 150) this.y = canvas.height - 150;
+        if (this.y < canvas.height - 300) this.y = canvas.height - 300;
 
         // 計算真實距離
         if (this.vy < 0) {
@@ -1112,7 +1112,17 @@ document.querySelectorAll('.car-card').forEach(card => {
     });
 });
 
-document.getElementById('start-btn').addEventListener('click', initGame);
+document.getElementById('start-btn').addEventListener('click', () => {
+    // 檢查是否強制顯示控制按鍵
+    const forceControls = document.getElementById('force-controls-chk').checked;
+    if (forceControls) {
+        document.getElementById('virtual-controls').classList.add('force-show');
+    } else {
+        document.getElementById('virtual-controls').classList.remove('force-show');
+    }
+    initGame();
+});
+
 document.getElementById('restart-btn').addEventListener('click', () => {
     screens.gameOver.classList.remove('active');
     screens.menu.classList.add('active');
