@@ -301,14 +301,19 @@ canvas {
 
 .control-group-left {
     display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+}
+
+.steer-row {
+    display: flex;
     gap: 15px;
-    /* 增加左右按鈕間距 */
 }
 
 .control-group-right {
     display: flex;
     align-items: flex-end;
-    /* 讓不同大小的按鈕底部對齊 */
 }
 
 .v-btn {
