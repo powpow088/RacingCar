@@ -1217,7 +1217,6 @@ function update(dt) {
                 if (GameState.coins >= 5) {
                     GameState.coins -= 5;
                     player.baseMaxSpeed += 2;
-                    player.accel += 0.04; // 加速度也同步提升
                     player.boostTimer = Math.max(player.boostTimer, 3.0);
                     showEffectNotice("極速顯著提升！！");
                 }
