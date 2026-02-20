@@ -51,7 +51,7 @@ let GameState = {
     lastFrameTime: 0,
 
     keys: { ArrowLeft: false, ArrowRight: false, ArrowUp: false, ArrowDown: false, Space: false, w: false, a: false, s: false, d: false },
-    touch: { left: false, right: false, brake: false, accel: false, isMobile: false },
+    touch: { left: false, right: false, brake: false, accel: false, fire: false, isMobile: false },
 
     offsetY: 0 // 背景捲動
 };
@@ -69,7 +69,11 @@ document.getElementById('btn-brake').addEventListener('touchstart', (e) => { e.p
 document.getElementById('btn-brake').addEventListener('touchend', (e) => { e.preventDefault(); GameState.touch.brake = false; });
 document.getElementById('btn-fire').addEventListener('touchstart', (e) => {
     e.preventDefault();
-    if (GameState.isRunning) player.fireMissile();
+    GameState.touch.fire = true;
+});
+document.getElementById('btn-fire').addEventListener('touchend', (e) => {
+    e.preventDefault();
+    GameState.touch.fire = false;
 });
 document.getElementById('btn-accel').addEventListener('touchstart', (e) => { e.preventDefault(); GameState.touch.accel = true; GameState.touch.isMobile = true; });
 document.getElementById('btn-accel').addEventListener('touchend', (e) => { e.preventDefault(); GameState.touch.accel = false; });
@@ -160,9 +164,9 @@ class Player extends Entity {
             if (GameState.touch.right) turn = 1;
         }
 
-        // 飛彈連發 (hold 空白鍵可以持續射擊)
+        // 飛彈連發 (hold 空白鍵或手機按鈕可以持續射擊)
         this.fireCooldown -= dt;
-        if ((GameState.keys[' '] || GameState.keys['Space']) && this.fireCooldown <= 0) {
+        if ((GameState.keys[' '] || GameState.keys['Space'] || GameState.touch.fire) && this.fireCooldown <= 0) {
             this.fireMissile();
             this.fireCooldown = 0.15; // 0.15秒一發
         }
@@ -176,7 +180,10 @@ class Player extends Entity {
             this.vy += 0.5; // 煞車
             this.isAccelerating = false;
         } else {
-            // 無油門：維持當前速度，僅非常緩慢地降速 (慣性滑行)
+            // 無油門無煞車：自動緩慢巡航到 20 km/h (vy = -1.67)
+            if (this.vy > -1.67) {
+                this.vy -= this.accel * 0.15; // 緩慢加速到 20
+            }
             this.isAccelerating = false;
         }
 
