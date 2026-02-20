@@ -28,7 +28,7 @@ const CAR_PRESETS = {
     balanced: { hp: 10, maxSpeed: 6, accel: 0.06, turnSpeed: 5, color: '#3498db', driftInertia: 0.1 },
     heavy: { hp: 15, maxSpeed: 4, accel: 0.025, turnSpeed: 3, color: '#e67e22', driftInertia: 0.05 },
     sports: { hp: 5, maxSpeed: 9, accel: 0.12, turnSpeed: 7, color: '#e74c3c', driftInertia: 0.2 },
-    ultraman: { hp: 99, maxSpeed: 12, accel: 0.25, turnSpeed: 8, color: '#ecf0f1', driftInertia: 0.15 }
+    ultraman: { hp: 10, maxSpeed: 12, accel: 0.25, turnSpeed: 8, color: '#ecf0f1', driftInertia: 0.15 }
 };
 
 const DIFF_PRESETS = {
@@ -263,6 +263,15 @@ class Player extends Entity {
         } else if (this.missileLevel === 2) {
             missiles.push(new Missile(this.x, this.y, 1));
             missiles.push(new Missile(this.x + this.w - 10, this.y, 1));
+        } else if (GameState.carType === 'ultraman' && this.missileLevel >= 3) {
+            // Lv3 奧特曼專屬: 斯佩修姆光線 (Spacium Beam)
+            let beam = new Missile(this.x + this.w / 2 - 15, this.y - 10, 3);
+            beam.w = 30;
+            beam.h = 80;
+            beam.isBeam = true;
+            beam.vy = -18;
+            beam.damage = 5;
+            missiles.push(beam);
         } else {
             // Lv3: 散彈效果 (5 發扇形展開)
             for (let angle = -0.3; angle <= 0.3; angle += 0.15) {
@@ -290,85 +299,103 @@ class Player extends Entity {
         const hh = this.h / 2;
 
         if (GameState.carType === 'ultraman') {
-            // 肩膀與胸口的紅色花紋基底 (初代最經典的紅銀配色)
-            ctx.fillStyle = '#e74c3c';
+            // ====== 初代奧特曼 俯視圖 ======
+
+            // --- 身體部分 (紅色肩膀 + 銀色胸口 V 字型) ---
+            ctx.fillStyle = '#c0392b';
             ctx.beginPath();
-            let rx = -hw - 4, ry = -hh + 10, rw = hw * 2 + 8, rh = hh * 2 - 10, rR = 6;
-            ctx.moveTo(rx + rR, ry);
-            ctx.lineTo(rx + rw - rR, ry);
-            ctx.quadraticCurveTo(rx + rw, ry, rx + rw, ry + rR);
-            ctx.lineTo(rx + rw, ry + rh - rR);
-            ctx.quadraticCurveTo(rx + rw, ry + rh, rx + rw - rR, ry + rh);
-            ctx.lineTo(rx + rR, ry + rh);
-            ctx.quadraticCurveTo(rx, ry + rh, rx, ry + rh - rR);
-            ctx.lineTo(rx, ry + rR);
-            ctx.quadraticCurveTo(rx, ry, rx + rR, ry);
+            ctx.moveTo(-hw - 3, 0);
+            ctx.lineTo(hw + 3, 0);
+            ctx.lineTo(hw + 5, hh);
+            ctx.lineTo(-hw - 5, hh);
             ctx.closePath();
             ctx.fill();
 
-            // 胸口的銀色區塊 (彩色計時器周圍)
+            // 銀色 V 型胸口
             ctx.fillStyle = '#bdc3c7';
             ctx.beginPath();
-            ctx.moveTo(-hw, hh);
-            ctx.lineTo(hw, hh);
-            ctx.lineTo(hw - 4, 0);
-            ctx.lineTo(-hw + 4, 0);
+            ctx.moveTo(0, -2);
+            ctx.lineTo(-hw + 2, hh);
+            ctx.lineTo(hw - 2, hh);
+            ctx.closePath();
             ctx.fill();
 
-            // 彩色計時器 (藍色發光)
+            // 彩色計時器 (Color Timer) - 藍色發光圓形
             ctx.fillStyle = '#3498db';
-            ctx.shadowColor = '#3498db';
-            ctx.shadowBlur = 10;
+            ctx.shadowColor = '#5dade2';
+            ctx.shadowBlur = 12;
             ctx.beginPath();
-            ctx.arc(0, 8, 4, 0, Math.PI * 2);
+            ctx.arc(0, hh * 0.45, 4, 0, Math.PI * 2);
             ctx.fill();
             ctx.shadowBlur = 0;
 
-            // 頭部基底 (銀色卵狀)
-            let headGrad = ctx.createRadialGradient(0, -4, 5, 0, -4, hh);
+            // --- 頭部 (拉長的銀色卵型) ---
+            ctx.fillStyle = '#7f8c8d';
+            ctx.beginPath();
+            ctx.ellipse(0, -hh * 0.25, hw + 1, hh * 0.85 + 1, 0, 0, Math.PI * 2);
+            ctx.fill();
+            let headGrad = ctx.createRadialGradient(0, -hh * 0.3, 2, 0, -hh * 0.25, hh * 0.85);
             headGrad.addColorStop(0, '#ffffff');
+            headGrad.addColorStop(0.6, '#d5d8dc');
             headGrad.addColorStop(1, '#95a5a6');
             ctx.fillStyle = headGrad;
             ctx.beginPath();
-            ctx.ellipse(0, -6, hw - 2, hh - 2, 0, 0, Math.PI * 2);
+            ctx.ellipse(0, -hh * 0.25, hw, hh * 0.85, 0, 0, Math.PI * 2);
             ctx.fill();
 
-            // 初代經典的中央銀色突起脊冠 (Silver Ridge)
+            // --- 中央脊鰭 (突起的銀色尖鰭，從頭頂到額頭) ---
             ctx.fillStyle = '#ecf0f1';
             ctx.beginPath();
-            ctx.moveTo(-2, -hh - 6);
-            ctx.lineTo(2, -hh - 6);
-            ctx.lineTo(3, 4);
-            ctx.lineTo(-3, 4);
+            ctx.moveTo(0, -hh - 8);
+            ctx.lineTo(-4, -hh * 0.1);
+            ctx.lineTo(4, -hh * 0.1);
+            ctx.closePath();
+            ctx.fill();
+            ctx.fillStyle = 'rgba(255,255,255,0.5)';
+            ctx.beginPath();
+            ctx.moveTo(0, -hh - 6);
+            ctx.lineTo(-1, -hh * 0.15);
+            ctx.lineTo(1, -hh * 0.15);
             ctx.closePath();
             ctx.fill();
 
-            // 兩側耳朵
-            ctx.fillStyle = '#7f8c8d';
-            ctx.fillRect(-hw, -10, 3, 10);
-            ctx.fillRect(hw - 3, -10, 3, 10);
-
-            // 初代鴨蛋圓發光黃眼睛
-            ctx.fillStyle = '#fce5cd';
+            // --- 大黃色的發光眼睛 (往外斜的橢圓形) ---
             ctx.shadowColor = '#f1c40f';
-            ctx.shadowBlur = 15;
-            // 左眼
+            ctx.shadowBlur = 18;
             ctx.save();
-            ctx.translate(-hw + 5, -12);
-            ctx.rotate(-Math.PI / 6);
+            ctx.translate(-hw * 0.5, -hh * 0.35);
+            ctx.rotate(-Math.PI / 4.5);
+            let eyeGrad = ctx.createRadialGradient(0, 0, 1, 0, 0, 10);
+            eyeGrad.addColorStop(0, '#ffffff');
+            eyeGrad.addColorStop(0.4, '#f9e547');
+            eyeGrad.addColorStop(1, '#f39c12');
+            ctx.fillStyle = eyeGrad;
             ctx.beginPath();
-            ctx.ellipse(0, 0, 4.5, 11, 0, 0, Math.PI * 2);
+            ctx.ellipse(0, 0, 5, 13, 0, 0, Math.PI * 2);
             ctx.fill();
             ctx.restore();
-            // 右眼
             ctx.save();
-            ctx.translate(hw - 5, -12);
-            ctx.rotate(Math.PI / 6);
+            ctx.translate(hw * 0.5, -hh * 0.35);
+            ctx.rotate(Math.PI / 4.5);
+            let eyeGrad2 = ctx.createRadialGradient(0, 0, 1, 0, 0, 10);
+            eyeGrad2.addColorStop(0, '#ffffff');
+            eyeGrad2.addColorStop(0.4, '#f9e547');
+            eyeGrad2.addColorStop(1, '#f39c12');
+            ctx.fillStyle = eyeGrad2;
             ctx.beginPath();
-            ctx.ellipse(0, 0, 4.5, 11, 0, 0, Math.PI * 2);
+            ctx.ellipse(0, 0, 5, 13, 0, 0, Math.PI * 2);
             ctx.fill();
             ctx.restore();
             ctx.shadowBlur = 0;
+
+            // --- 嘴巴的切縫 ---
+            ctx.strokeStyle = '#7f8c8d';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(-6, hh * 0.05);
+            ctx.quadraticCurveTo(0, hh * 0.12, 6, hh * 0.05);
+            ctx.stroke();
+
         } else {
             // === 一般車輛繪圖 ===
             // === 輪胎 ===
@@ -522,6 +549,39 @@ class Missile extends Entity {
     }
 
     draw(ctx) {
+        // 奧特曼 Spacium Beam 光波特效
+        if (this.isBeam) {
+            ctx.save();
+            let cx = this.x + this.w / 2;
+            let cy = this.y + this.h / 2;
+            // 外層發光
+            let beamGrad = ctx.createLinearGradient(cx - this.w, cy, cx + this.w, cy);
+            beamGrad.addColorStop(0, 'rgba(100,200,255,0)');
+            beamGrad.addColorStop(0.3, 'rgba(100,200,255,0.6)');
+            beamGrad.addColorStop(0.5, 'rgba(255,255,255,0.9)');
+            beamGrad.addColorStop(0.7, 'rgba(100,200,255,0.6)');
+            beamGrad.addColorStop(1, 'rgba(100,200,255,0)');
+            ctx.fillStyle = beamGrad;
+            ctx.shadowColor = '#5dade2';
+            ctx.shadowBlur = 25;
+            ctx.fillRect(this.x - 5, this.y, this.w + 10, this.h);
+            // 內層白色核心
+            ctx.fillStyle = 'rgba(255,255,255,0.8)';
+            ctx.fillRect(this.x + this.w * 0.25, this.y, this.w * 0.5, this.h);
+            // 動態波紋
+            ctx.strokeStyle = 'rgba(255,255,255,0.5)';
+            ctx.lineWidth = 2;
+            for (let i = 0; i < 3; i++) {
+                let yOff = (Date.now() / 50 + i * 25) % this.h;
+                ctx.beginPath();
+                ctx.moveTo(this.x, this.y + yOff);
+                ctx.lineTo(this.x + this.w, this.y + yOff);
+                ctx.stroke();
+            }
+            ctx.shadowBlur = 0;
+            ctx.restore();
+            return;
+        }
         ctx.fillStyle = this.level === 3 ? '#e74c3c' : '#f1c40f';
         ctx.fillRect(this.x, this.y, this.w, this.h);
 
@@ -1230,85 +1290,96 @@ function drawCarPreview(canvasId, carType, color, carW, carH) {
     ctx.translate(cx, cy);
 
     if (carType === 'ultraman') {
-        // 肩膀與胸口的紅色花紋基底 (初代最經典的紅銀配色)
-        ctx.fillStyle = '#e74c3c';
+        // ====== 初代奧特曼 俯視圖 (預覽) ======
+
+        // --- 身體部分 ---
+        ctx.fillStyle = '#c0392b';
         ctx.beginPath();
-        let rx = -hw - 4, ry = -hh + 10, rw = hw * 2 + 8, rh = hh * 2 - 10, rR = 6;
-        ctx.moveTo(rx + rR, ry);
-        ctx.lineTo(rx + rw - rR, ry);
-        ctx.quadraticCurveTo(rx + rw, ry, rx + rw, ry + rR);
-        ctx.lineTo(rx + rw, ry + rh - rR);
-        ctx.quadraticCurveTo(rx + rw, ry + rh, rx + rw - rR, ry + rh);
-        ctx.lineTo(rx + rR, ry + rh);
-        ctx.quadraticCurveTo(rx, ry + rh, rx, ry + rh - rR);
-        ctx.lineTo(rx, ry + rR);
-        ctx.quadraticCurveTo(rx, ry, rx + rR, ry);
+        ctx.moveTo(-hw - 3, 0);
+        ctx.lineTo(hw + 3, 0);
+        ctx.lineTo(hw + 5, hh);
+        ctx.lineTo(-hw - 5, hh);
         ctx.closePath();
         ctx.fill();
 
-        // 胸口的銀色區塊 (彩色計時器周圍)
+        // 銀色 V 型胸口
         ctx.fillStyle = '#bdc3c7';
         ctx.beginPath();
-        ctx.moveTo(-hw, hh);
-        ctx.lineTo(hw, hh);
-        ctx.lineTo(hw - 4, 0);
-        ctx.lineTo(-hw + 4, 0);
+        ctx.moveTo(0, -2);
+        ctx.lineTo(-hw + 2, hh);
+        ctx.lineTo(hw - 2, hh);
+        ctx.closePath();
         ctx.fill();
 
-        // 彩色計時器 (藍色發光)
+        // 彩色計時器
         ctx.fillStyle = '#3498db';
-        ctx.shadowColor = '#3498db';
-        ctx.shadowBlur = 10;
+        ctx.shadowColor = '#5dade2';
+        ctx.shadowBlur = 12;
         ctx.beginPath();
-        ctx.arc(0, 8, 4, 0, Math.PI * 2);
+        ctx.arc(0, hh * 0.45, 4, 0, Math.PI * 2);
         ctx.fill();
         ctx.shadowBlur = 0;
 
-        // 頭部基底 (銀色卵狀)
-        let headGrad = ctx.createRadialGradient(0, -4, 5, 0, -4, hh);
+        // --- 頭部 ---
+        ctx.fillStyle = '#7f8c8d';
+        ctx.beginPath();
+        ctx.ellipse(0, -hh * 0.25, hw + 1, hh * 0.85 + 1, 0, 0, Math.PI * 2);
+        ctx.fill();
+        let headGrad = ctx.createRadialGradient(0, -hh * 0.3, 2, 0, -hh * 0.25, hh * 0.85);
         headGrad.addColorStop(0, '#ffffff');
+        headGrad.addColorStop(0.6, '#d5d8dc');
         headGrad.addColorStop(1, '#95a5a6');
         ctx.fillStyle = headGrad;
         ctx.beginPath();
-        ctx.ellipse(0, -6, hw - 2, hh - 2, 0, 0, Math.PI * 2);
+        ctx.ellipse(0, -hh * 0.25, hw, hh * 0.85, 0, 0, Math.PI * 2);
         ctx.fill();
 
-        // 初代經典的中央銀色突起脊冠 (Silver Ridge)
+        // --- 中央脊鰭 ---
         ctx.fillStyle = '#ecf0f1';
         ctx.beginPath();
-        ctx.moveTo(-2, -hh - 6);
-        ctx.lineTo(2, -hh - 6);
-        ctx.lineTo(3, 4);
-        ctx.lineTo(-3, 4);
+        ctx.moveTo(0, -hh - 8);
+        ctx.lineTo(-4, -hh * 0.1);
+        ctx.lineTo(4, -hh * 0.1);
         ctx.closePath();
         ctx.fill();
 
-        // 兩側耳朵
-        ctx.fillStyle = '#7f8c8d';
-        ctx.fillRect(-hw, -10, 3, 10);
-        ctx.fillRect(hw - 3, -10, 3, 10);
-
-        // 初代鴨蛋圓發光黃眼睛
-        ctx.fillStyle = '#fce5cd';
+        // --- 大黃色發光眼睛 ---
         ctx.shadowColor = '#f1c40f';
-        ctx.shadowBlur = 15;
-        // 左眼
+        ctx.shadowBlur = 18;
         ctx.save();
-        ctx.translate(-hw + 5, -12);
-        ctx.rotate(-Math.PI / 6);
+        ctx.translate(-hw * 0.5, -hh * 0.35);
+        ctx.rotate(-Math.PI / 4.5);
+        let eyeGrad = ctx.createRadialGradient(0, 0, 1, 0, 0, 10);
+        eyeGrad.addColorStop(0, '#ffffff');
+        eyeGrad.addColorStop(0.4, '#f9e547');
+        eyeGrad.addColorStop(1, '#f39c12');
+        ctx.fillStyle = eyeGrad;
         ctx.beginPath();
-        ctx.ellipse(0, 0, 4.5, 11, 0, 0, Math.PI * 2);
+        ctx.ellipse(0, 0, 5, 13, 0, 0, Math.PI * 2);
         ctx.fill();
         ctx.restore();
-        // 右眼
         ctx.save();
-        ctx.translate(hw - 5, -12);
-        ctx.rotate(Math.PI / 6);
+        ctx.translate(hw * 0.5, -hh * 0.35);
+        ctx.rotate(Math.PI / 4.5);
+        let eyeGrad2 = ctx.createRadialGradient(0, 0, 1, 0, 0, 10);
+        eyeGrad2.addColorStop(0, '#ffffff');
+        eyeGrad2.addColorStop(0.4, '#f9e547');
+        eyeGrad2.addColorStop(1, '#f39c12');
+        ctx.fillStyle = eyeGrad2;
         ctx.beginPath();
-        ctx.ellipse(0, 0, 4.5, 11, 0, 0, Math.PI * 2);
+        ctx.ellipse(0, 0, 5, 13, 0, 0, Math.PI * 2);
         ctx.fill();
         ctx.restore();
         ctx.shadowBlur = 0;
+
+        // --- 嘴巴的切縫 ---
+        ctx.strokeStyle = '#7f8c8d';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(-6, hh * 0.05);
+        ctx.quadraticCurveTo(0, hh * 0.12, 6, hh * 0.05);
+        ctx.stroke();
+
     } else {
 
         // 輪胎
