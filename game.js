@@ -1113,13 +1113,7 @@ document.querySelectorAll('.car-card').forEach(card => {
 });
 
 document.getElementById('start-btn').addEventListener('click', () => {
-    // 檢查是否強制顯示控制按鍵
-    const forceControls = document.getElementById('force-controls-chk').checked;
-    if (forceControls) {
-        document.getElementById('virtual-controls').classList.add('force-show');
-    } else {
-        document.getElementById('virtual-controls').classList.remove('force-show');
-    }
+    document.getElementById('virtual-controls').classList.add('force-show');
     initGame();
 });
 
