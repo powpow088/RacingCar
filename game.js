@@ -289,61 +289,85 @@ class Player extends Entity {
         const hw = this.w / 2;
         const hh = this.h / 2;
 
-        // 若是奧特曼，繪製奧特曼頭像俯視圖
         if (GameState.carType === 'ultraman') {
-            // 頭部基底 (銀灰色漸層)
-            let headGrad = ctx.createRadialGradient(0, 0, 5, 0, 0, hh);
-            headGrad.addColorStop(0, '#ffffff');
-            headGrad.addColorStop(1, '#bdc3c7');
-            ctx.fillStyle = headGrad;
-            ctx.beginPath();
-            ctx.ellipse(0, 0, hw, hh, 0, 0, Math.PI * 2);
-            ctx.fill();
-
-            // 兩側耳朵/耳機紋路
-            ctx.fillStyle = '#7f8c8d';
-            ctx.fillRect(-hw - 2, -3, 4, 12);
-            ctx.fillRect(hw - 2, -3, 4, 12);
-
-            // 頭頂紅色頭冠 (Crest)
+            // 肩膀與胸口的紅色花紋基底 (初代最經典的紅銀配色)
             ctx.fillStyle = '#e74c3c';
             ctx.beginPath();
-            ctx.moveTo(-4, -hh);
-            ctx.lineTo(4, -hh);
-            ctx.lineTo(2, 6);
-            ctx.lineTo(-2, 6);
+            let rx = -hw - 4, ry = -hh + 10, rw = hw * 2 + 8, rh = hh * 2 - 10, rR = 6;
+            ctx.moveTo(rx + rR, ry);
+            ctx.lineTo(rx + rw - rR, ry);
+            ctx.quadraticCurveTo(rx + rw, ry, rx + rw, ry + rR);
+            ctx.lineTo(rx + rw, ry + rh - rR);
+            ctx.quadraticCurveTo(rx + rw, ry + rh, rx + rw - rR, ry + rh);
+            ctx.lineTo(rx + rR, ry + rh);
+            ctx.quadraticCurveTo(rx, ry + rh, rx, ry + rh - rR);
+            ctx.lineTo(rx, ry + rR);
+            ctx.quadraticCurveTo(rx, ry, rx + rR, ry);
             ctx.closePath();
             ctx.fill();
 
-            // 眼睛 (黃色發光鴨蛋圓)
+            // 胸口的銀色區塊 (彩色計時器周圍)
+            ctx.fillStyle = '#bdc3c7';
+            ctx.beginPath();
+            ctx.moveTo(-hw, hh);
+            ctx.lineTo(hw, hh);
+            ctx.lineTo(hw - 4, 0);
+            ctx.lineTo(-hw + 4, 0);
+            ctx.fill();
+
+            // 彩色計時器 (藍色發光)
+            ctx.fillStyle = '#3498db';
+            ctx.shadowColor = '#3498db';
+            ctx.shadowBlur = 10;
+            ctx.beginPath();
+            ctx.arc(0, 8, 4, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.shadowBlur = 0;
+
+            // 頭部基底 (銀色卵狀)
+            let headGrad = ctx.createRadialGradient(0, -4, 5, 0, -4, hh);
+            headGrad.addColorStop(0, '#ffffff');
+            headGrad.addColorStop(1, '#95a5a6');
+            ctx.fillStyle = headGrad;
+            ctx.beginPath();
+            ctx.ellipse(0, -6, hw - 2, hh - 2, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // 初代經典的中央銀色突起脊冠 (Silver Ridge)
+            ctx.fillStyle = '#ecf0f1';
+            ctx.beginPath();
+            ctx.moveTo(-2, -hh - 6);
+            ctx.lineTo(2, -hh - 6);
+            ctx.lineTo(3, 4);
+            ctx.lineTo(-3, 4);
+            ctx.closePath();
+            ctx.fill();
+
+            // 兩側耳朵
+            ctx.fillStyle = '#7f8c8d';
+            ctx.fillRect(-hw, -10, 3, 10);
+            ctx.fillRect(hw - 3, -10, 3, 10);
+
+            // 初代鴨蛋圓發光黃眼睛
             ctx.fillStyle = '#fce5cd';
             ctx.shadowColor = '#f1c40f';
             ctx.shadowBlur = 15;
             // 左眼
             ctx.save();
-            ctx.translate(-hw + 8, -hh + 18);
-            ctx.rotate(-Math.PI / 5);
+            ctx.translate(-hw + 5, -12);
+            ctx.rotate(-Math.PI / 6);
             ctx.beginPath();
-            ctx.ellipse(0, 0, 6, 14, 0, 0, Math.PI * 2);
+            ctx.ellipse(0, 0, 4.5, 11, 0, 0, Math.PI * 2);
             ctx.fill();
             ctx.restore();
             // 右眼
             ctx.save();
-            ctx.translate(hw - 8, -hh + 18);
-            ctx.rotate(Math.PI / 5);
+            ctx.translate(hw - 5, -12);
+            ctx.rotate(Math.PI / 6);
             ctx.beginPath();
-            ctx.ellipse(0, 0, 6, 14, 0, 0, Math.PI * 2);
+            ctx.ellipse(0, 0, 4.5, 11, 0, 0, Math.PI * 2);
             ctx.fill();
             ctx.restore();
-            ctx.shadowBlur = 0;
-
-            // 額頭水晶光束燈 (綠光)
-            ctx.fillStyle = '#2ecc71';
-            ctx.shadowColor = '#2ecc71';
-            ctx.shadowBlur = 8;
-            ctx.beginPath();
-            ctx.arc(0, -hh + 5, 3, 0, Math.PI * 2);
-            ctx.fill();
             ctx.shadowBlur = 0;
         } else {
             // === 一般車輛繪圖 ===
@@ -1206,59 +1230,84 @@ function drawCarPreview(canvasId, carType, color, carW, carH) {
     ctx.translate(cx, cy);
 
     if (carType === 'ultraman') {
-        // 頭部基底 (銀灰色漸層)
-        let headGrad = ctx.createRadialGradient(0, 0, 5, 0, 0, hh);
-        headGrad.addColorStop(0, '#ffffff');
-        headGrad.addColorStop(1, '#bdc3c7');
-        ctx.fillStyle = headGrad;
-        ctx.beginPath();
-        ctx.ellipse(0, 0, hw, hh, 0, 0, Math.PI * 2);
-        ctx.fill();
-
-        // 兩側耳朵/耳機紋路
-        ctx.fillStyle = '#7f8c8d';
-        ctx.fillRect(-hw - 2, -3, 4, 12);
-        ctx.fillRect(hw - 2, -3, 4, 12);
-
-        // 頭頂紅色頭冠 (Crest)
+        // 肩膀與胸口的紅色花紋基底 (初代最經典的紅銀配色)
         ctx.fillStyle = '#e74c3c';
         ctx.beginPath();
-        ctx.moveTo(-4, -hh);
-        ctx.lineTo(4, -hh);
-        ctx.lineTo(2, 6);
-        ctx.lineTo(-2, 6);
+        let rx = -hw - 4, ry = -hh + 10, rw = hw * 2 + 8, rh = hh * 2 - 10, rR = 6;
+        ctx.moveTo(rx + rR, ry);
+        ctx.lineTo(rx + rw - rR, ry);
+        ctx.quadraticCurveTo(rx + rw, ry, rx + rw, ry + rR);
+        ctx.lineTo(rx + rw, ry + rh - rR);
+        ctx.quadraticCurveTo(rx + rw, ry + rh, rx + rw - rR, ry + rh);
+        ctx.lineTo(rx + rR, ry + rh);
+        ctx.quadraticCurveTo(rx, ry + rh, rx, ry + rh - rR);
+        ctx.lineTo(rx, ry + rR);
+        ctx.quadraticCurveTo(rx, ry, rx + rR, ry);
         ctx.closePath();
         ctx.fill();
 
-        // 眼睛 (黃色發光鴨蛋圓)
+        // 胸口的銀色區塊 (彩色計時器周圍)
+        ctx.fillStyle = '#bdc3c7';
+        ctx.beginPath();
+        ctx.moveTo(-hw, hh);
+        ctx.lineTo(hw, hh);
+        ctx.lineTo(hw - 4, 0);
+        ctx.lineTo(-hw + 4, 0);
+        ctx.fill();
+
+        // 彩色計時器 (藍色發光)
+        ctx.fillStyle = '#3498db';
+        ctx.shadowColor = '#3498db';
+        ctx.shadowBlur = 10;
+        ctx.beginPath();
+        ctx.arc(0, 8, 4, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.shadowBlur = 0;
+
+        // 頭部基底 (銀色卵狀)
+        let headGrad = ctx.createRadialGradient(0, -4, 5, 0, -4, hh);
+        headGrad.addColorStop(0, '#ffffff');
+        headGrad.addColorStop(1, '#95a5a6');
+        ctx.fillStyle = headGrad;
+        ctx.beginPath();
+        ctx.ellipse(0, -6, hw - 2, hh - 2, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // 初代經典的中央銀色突起脊冠 (Silver Ridge)
+        ctx.fillStyle = '#ecf0f1';
+        ctx.beginPath();
+        ctx.moveTo(-2, -hh - 6);
+        ctx.lineTo(2, -hh - 6);
+        ctx.lineTo(3, 4);
+        ctx.lineTo(-3, 4);
+        ctx.closePath();
+        ctx.fill();
+
+        // 兩側耳朵
+        ctx.fillStyle = '#7f8c8d';
+        ctx.fillRect(-hw, -10, 3, 10);
+        ctx.fillRect(hw - 3, -10, 3, 10);
+
+        // 初代鴨蛋圓發光黃眼睛
         ctx.fillStyle = '#fce5cd';
         ctx.shadowColor = '#f1c40f';
         ctx.shadowBlur = 15;
         // 左眼
         ctx.save();
-        ctx.translate(-hw + 8, -hh + 18);
-        ctx.rotate(-Math.PI / 5);
+        ctx.translate(-hw + 5, -12);
+        ctx.rotate(-Math.PI / 6);
         ctx.beginPath();
-        ctx.ellipse(0, 0, 6, 14, 0, 0, Math.PI * 2);
+        ctx.ellipse(0, 0, 4.5, 11, 0, 0, Math.PI * 2);
         ctx.fill();
         ctx.restore();
         // 右眼
         ctx.save();
-        ctx.translate(hw - 8, -hh + 18);
-        ctx.rotate(Math.PI / 5);
+        ctx.translate(hw - 5, -12);
+        ctx.rotate(Math.PI / 6);
         ctx.beginPath();
-        ctx.ellipse(0, 0, 6, 14, 0, 0, Math.PI * 2);
+        ctx.ellipse(0, 0, 4.5, 11, 0, 0, Math.PI * 2);
         ctx.fill();
         ctx.restore();
-        ctx.shadowBlur = 0;
-
-        // 額頭水晶光束燈 (綠光)
-        ctx.fillStyle = '#2ecc71';
-        ctx.shadowColor = '#2ecc71';
-        ctx.shadowBlur = 8;
-        ctx.beginPath();
-        ctx.arc(0, -hh + 5, 3, 0, Math.PI * 2);
-        ctx.fill();
         ctx.shadowBlur = 0;
     } else {
 
