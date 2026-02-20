@@ -159,13 +159,16 @@ button {
 
 .car-showcase-container {
     display: flex;
-    justify-content: space-between;
+    flex-wrap: wrap;
+    justify-content: center;
     gap: 15px;
     margin-top: 15px;
 }
 
 .car-card {
-    flex: 1;
+    flex: 1 1 100px;
+    min-width: 100px;
+    max-width: 160px;
     background: #16213e;
     border: 2px solid #0f3460;
     border-radius: 8px;
