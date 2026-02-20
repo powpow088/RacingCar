@@ -31,9 +31,9 @@ const CAR_PRESETS = {
 };
 
 const DIFF_PRESETS = {
-    easy: { startTime: 240, trafficRate: 0.003, trafficSpeedMulti: 0.8 },
-    normal: { startTime: 180, trafficRate: 0.006, trafficSpeedMulti: 1.0 },
-    hard: { startTime: 120, trafficRate: 0.012, trafficSpeedMulti: 1.5 }
+    easy: { startTime: 240, trafficRate: 0.004, trafficSpeedMulti: 0.8 },
+    normal: { startTime: 180, trafficRate: 0.012, trafficSpeedMulti: 1.0 }, // 增倍車流
+    hard: { startTime: 120, trafficRate: 0.025, trafficSpeedMulti: 1.5 }  // 增倍車流
 };
 
 // --- Global Game State ---
@@ -45,6 +45,7 @@ let GameState = {
     time: 0,
     dist: 0,
     coins: 0,
+    maxRecordedSpeed: 0, // 新增：追蹤最高時速
     lastFrameTime: 0,
 
     keys: { ArrowLeft: false, ArrowRight: false, ArrowUp: false, ArrowDown: false, Space: false, w: false, a: false, s: false, d: false },
@@ -815,6 +816,7 @@ function initGame() {
     GameState.dist = 0;
     GameState.coins = 0;
     GameState.offsetY = 0;
+    GameState.maxRecordedSpeed = 0; // 重置最高時速
     GameState.lastFrameTime = performance.now();
     GameState.isRunning = true;
 
@@ -833,6 +835,7 @@ function endGame() {
     screens.game.classList.remove('active');
     screens.gameOver.classList.add('active');
     document.getElementById('go-dist').innerText = (GameState.dist / 1000).toFixed(2);
+    document.getElementById('go-max-speed').innerText = GameState.maxRecordedSpeed; // 顯示最高時速
 }
 
 function showEffectNotice(text) {
@@ -846,6 +849,9 @@ function updateHUD() {
     hud.dist.innerText = Math.floor(GameState.dist);
     // 加上基礎速度與稍微調整顯示比例，讓時速變化更符合一般認知
     let kmh = Math.round(Math.abs(player.vy) * 12);
+    if (kmh > GameState.maxRecordedSpeed) {
+        GameState.maxRecordedSpeed = kmh; // 記錄最高時速
+    }
     hud.speed.innerText = kmh;
     hud.ammo.innerText = 'Lv.' + player.missileLevel;
     hud.coins.innerText = GameState.coins;
