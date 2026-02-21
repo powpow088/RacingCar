@@ -34,9 +34,9 @@ const CAR_PRESETS = {
 };
 
 const DIFF_PRESETS = {
-    easy: { startTime: 240, trafficRate: 0.004, trafficSpeedMulti: 0.8 },
-    normal: { startTime: 180, trafficRate: 0.012, trafficSpeedMulti: 1.0 }, // 增倍車流
-    hard: { startTime: 120, trafficRate: 0.025, trafficSpeedMulti: 1.5 }  // 增倍車流
+    easy: { startTime: 300, trafficRate: 0.004, trafficSpeedMulti: 0.8 },
+    normal: { startTime: 240, trafficRate: 0.012, trafficSpeedMulti: 1.0 },
+    hard: { startTime: 180, trafficRate: 0.025, trafficSpeedMulti: 1.5 }
 };
 
 // --- Global Game State ---
@@ -62,22 +62,24 @@ window.addEventListener('keydown', (e) => { GameState.keys[e.key] = true; GameSt
 window.addEventListener('keyup', (e) => { GameState.keys[e.key] = false; GameState.keys[e.key.toLowerCase()] = false; });
 
 // Phone Touch Controls
-document.getElementById('btn-left').addEventListener('touchstart', (e) => { e.preventDefault(); GameState.touch.left = true; GameState.touch.isMobile = true; });
-document.getElementById('btn-left').addEventListener('touchend', (e) => { e.preventDefault(); GameState.touch.left = false; });
-document.getElementById('btn-right').addEventListener('touchstart', (e) => { e.preventDefault(); GameState.touch.right = true; GameState.touch.isMobile = true; });
-document.getElementById('btn-right').addEventListener('touchend', (e) => { e.preventDefault(); GameState.touch.right = false; });
-document.getElementById('btn-brake').addEventListener('touchstart', (e) => { e.preventDefault(); GameState.touch.brake = true; });
-document.getElementById('btn-brake').addEventListener('touchend', (e) => { e.preventDefault(); GameState.touch.brake = false; });
-document.getElementById('btn-fire').addEventListener('touchstart', (e) => {
-    e.preventDefault();
-    GameState.touch.fire = true;
+const addTouch = (id, field) => {
+    let el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener('touchstart', (e) => { e.preventDefault(); GameState.touch[field] = true; GameState.touch.isMobile = true; }, { passive: false });
+    el.addEventListener('touchend', (e) => { e.preventDefault(); GameState.touch[field] = false; }, { passive: false });
+    el.addEventListener('touchcancel', (e) => { e.preventDefault(); GameState.touch[field] = false; }, { passive: false });
+};
+
+addTouch('btn-left', 'left');
+addTouch('btn-right', 'right');
+addTouch('btn-brake', 'brake');
+addTouch('btn-fire', 'fire');
+addTouch('btn-accel', 'accel');
+
+// Prevent context menu on long press which causes touch to get stuck
+document.addEventListener('contextmenu', event => {
+    if (GameState.touch.isMobile) event.preventDefault();
 });
-document.getElementById('btn-fire').addEventListener('touchend', (e) => {
-    e.preventDefault();
-    GameState.touch.fire = false;
-});
-document.getElementById('btn-accel').addEventListener('touchstart', (e) => { e.preventDefault(); GameState.touch.accel = true; GameState.touch.isMobile = true; });
-document.getElementById('btn-accel').addEventListener('touchend', (e) => { e.preventDefault(); GameState.touch.accel = false; });
 
 
 // Resize Canvas
