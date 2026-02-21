@@ -30,22 +30,22 @@
                 <div class="car-card selected" data-car="balanced">
                     <canvas class="car-preview" id="preview-balanced" width="60" height="90"></canvas>
                     <h3>均衡型</h3>
-                    <p>血量: 10<br>極速: 72 km/h<br>加速: 0.06<br>轉向: 中</p>
+                    <p>血量: 10<br>極速: 72 km/h<br>加速: 0.05<br>轉向: 中</p>
                 </div>
                 <div class="car-card" data-car="heavy">
                     <canvas class="car-preview" id="preview-heavy" width="60" height="90"></canvas>
                     <h3>重裝卡車</h3>
-                    <p>血量: 15<br>極速: 48 km/h<br>加速: 0.035<br>轉向: 遲鈍</p>
+                    <p>血量: 15<br>極速: 50 km/h<br>加速: 0.025<br>轉向: 遲鈍</p>
                 </div>
                 <div class="car-card" data-car="sports">
                     <canvas class="car-preview" id="preview-sports" width="60" height="90"></canvas>
                     <h3>競速跑車</h3>
-                    <p>血量: 5<br>極速: 108 km/h<br>加速: 0.15<br>轉向: 靈敏</p>
+                    <p>血量: 5<br>極速: 108 km/h<br>加速: 0.1<br>轉向: 靈敏</p>
                 </div>
                 <div class="car-card" data-car="ultraman">
                     <canvas class="car-preview" id="preview-ultraman" width="60" height="90"></canvas>
                     <h3>奧特曼</h3>
-                    <p>血量: 10<br>極速: 144 km/h<br>加速: 0.25<br>轉向: 超靈敏</p>
+                    <p>血量: 10<br>極速: 144 km/h<br>加速: 0.15<br>轉向: 超靈敏</p>
                 </div>
             </div>
         </div>
@@ -60,14 +60,35 @@
 
         <!-- HUD (抬頭顯示器) -->
         <div id="hud">
-            <div class="hud-item hp-display">血量: <span id="hud-hp">3</span></div>
-            <div class="hud-item time-display">時間: <span id="hud-time">60.0</span>s</div>
-            <div class="hud-item score-display">距離: <span id="hud-dist">0</span>m</div>
-            <div class="hud-item speed-display">時速: <span id="hud-speed">0</span>km/h</div>
-            <div class="hud-item maxspd-display">極速: <span id="hud-maxspd">0</span>km/h</div>
-            <div class="hud-item accel-display">加速: <span id="hud-accel">0</span></div>
-            <div class="hud-item ammo-display">飛彈: <span id="hud-ammo">Lv.1</span></div>
-            <div class="hud-item coin-display">金幣: <span id="hud-coins">0</span>/5</div>
+            <div class="hud-left">
+                <div class="hud-item hp-display">血量: <span id="hud-hp">3</span></div>
+                <div class="hud-item score-display">距離: <span id="hud-dist">0</span>m</div>
+                <div class="hud-item ammo-display" style="display: none;">飛彈: <span id="hud-ammo">Lv.1</span></div>
+                <div class="hud-item accel-display" style="display: none;">加速: <span id="hud-accel">0</span></div>
+                <div class="hud-item coin-display">金幣: <span id="hud-coins">0</span>/5</div>
+            </div>
+            <div class="hud-right">
+                <div class="hud-item time-display">時間: <span id="hud-time">60.0</span>s</div>
+                <div class="hud-item speed-meter-ui">
+                    <svg width="120" height="65" viewBox="0 0 120 65" class="speed-svg">
+                        <path d="M 15 60 A 45 45 0 0 1 105 60" fill="none" stroke="#16213e" stroke-width="12"
+                            stroke-linecap="round" />
+                        <path id="speed-arc-fill" d="M 15 60 A 45 45 0 0 1 105 60" fill="none" stroke="#2ecc71"
+                            stroke-width="12" stroke-linecap="round" stroke-dasharray="141.4" stroke-dashoffset="141.4"
+                            style="transition: stroke-dashoffset 0.1s linear, stroke 0.2s;" />
+                        <circle cx="103" cy="58" r="4" fill="#e74c3c" />
+                        <g id="speed-needle-grp"
+                            style="transform-origin: 60px 60px; transform: rotate(-90deg); transition: transform 0.1s linear;">
+                            <polygon points="58,60 62,60 60,20" fill="#e74c3c" />
+                            <circle cx="60" cy="60" r="5" fill="#fff" />
+                        </g>
+                    </svg>
+                    <div class="speed-texts">
+                        <div class="current-speed"><span id="hud-speed">0</span> <small>km/h</small></div>
+                        <div class="max-speed-label">極限 <span id="hud-maxspd">0</span></div>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <!-- 虛擬按鍵 (Mobile Only) -->
@@ -96,6 +117,27 @@
         <p class="final-score">最終行駛距離: <span id="go-dist">0</span>km</p>
         <p class="final-score" style="font-size:1.5rem; margin-top: -20px;">最高時速: <span id="go-max-speed">0</span>km/h
         </p>
+
+        <div id="save-score-section" style="margin-bottom: 20px; text-align: center;">
+            <p style="color:#aeb9cc; margin-bottom: 10px;">是否儲存成績？</p>
+            <div style="display:flex; justify-content:center; align-items:center; gap:10px;">
+                <input type="text" id="player-name-input" placeholder="輸入玩家名稱"
+                    style="padding:8px; font-size:1rem; border-radius:5px; border:1px solid #0f3460; background:#16213e; color:#fff; width:150px;">
+                <button id="save-score-btn" class="action-btn" style="font-size: 1rem; padding: 10px 20px;">儲存</button>
+            </div>
+            <p id="save-msg" style="color:#2ecc71; display:none; margin-top:10px;">成績已儲存！</p>
+        </div>
+
+        <div id="leaderboard-container"
+            style="background: rgba(0,0,0,0.5); padding: 15px; border-radius: 10px; width: 90%; max-width: 400px; margin-bottom: 20px; border: 1px solid #0f3460;">
+            <h2 style="color: #f1c40f; text-align: center; margin-bottom: 10px; text-shadow: 0 0 5px #f1c40f;">🏆 排行榜 🏆
+            </h2>
+            <div id="leaderboard-list"
+                style="max-height: 150px; overflow-y: auto; text-align: left; font-size: 0.95rem;">
+                <!-- leaderboard items go here -->
+            </div>
+        </div>
+
         <button id="restart-btn" class="action-btn">回主畫面</button>
     </div>
 

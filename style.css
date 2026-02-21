@@ -228,15 +228,28 @@ canvas {
     left: 10px;
     right: 10px;
     display: flex;
-    flex-wrap: wrap;
-    /* 允許換行以適應手機小螢幕 */
     justify-content: space-between;
-    gap: 5px;
+    align-items: flex-start;
     pointer-events: none;
     z-index: 20;
     font-weight: bold;
     font-size: 1.2rem;
     text-shadow: 2px 2px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000;
+}
+
+.hud-left,
+.hud-right {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.hud-left {
+    align-items: flex-start;
+}
+
+.hud-right {
+    align-items: flex-end;
 }
 
 .hud-item {
@@ -262,8 +275,43 @@ canvas {
     color: #f39c12;
 }
 
-.speed-display {
+/* 新增時速錶樣式 */
+.speed-meter-ui {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    background: rgba(0, 0, 0, 0.7);
+    padding: 10px 15px 5px !important;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.speed-svg {
+    display: block;
+    margin-bottom: -5px;
+}
+
+.speed-texts {
+    text-align: center;
+    line-height: 1.2;
+}
+
+.current-speed {
     color: #2ecc71;
+    font-size: 1.4rem;
+    font-weight: bold;
+    text-shadow: 1px 1px 0 #000;
+}
+
+.current-speed small {
+    font-size: 0.8rem;
+    color: #aeb9cc;
+}
+
+.max-speed-label {
+    font-size: 0.8rem;
+    color: #e74c3c;
+    margin-top: -2px;
 }
 
 /* 視覺特效提示 (例如：BOOST!) */

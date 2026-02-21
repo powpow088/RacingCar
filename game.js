@@ -27,10 +27,10 @@ const effectNotice = document.getElementById('effect-notice');
 
 // --- Game Configurations ---
 const CAR_PRESETS = {
-    balanced: { hp: 10, maxSpeed: 6, accel: 0.06, turnSpeed: 5, color: '#3498db', driftInertia: 0.1 },
-    heavy: { hp: 15, maxSpeed: 4, accel: 0.025, turnSpeed: 3, color: '#e67e22', driftInertia: 0.05 },
-    sports: { hp: 5, maxSpeed: 9, accel: 0.12, turnSpeed: 7, color: '#e74c3c', driftInertia: 0.2 },
-    ultraman: { hp: 10, maxSpeed: 12, accel: 0.25, turnSpeed: 8, color: '#ecf0f1', driftInertia: 0.15 }
+    balanced: { hp: 10, maxSpeed: 6, accel: 0.05, turnSpeed: 5, color: '#3498db', driftInertia: 0.1 },
+    heavy: { hp: 15, maxSpeed: 50 / 12, accel: 0.025, turnSpeed: 3, color: '#e67e22', driftInertia: 0.05 },
+    sports: { hp: 5, maxSpeed: 9, accel: 0.1, turnSpeed: 7, color: '#e74c3c', driftInertia: 0.2 },
+    ultraman: { hp: 10, maxSpeed: 12, accel: 0.15, turnSpeed: 8, color: '#ecf0f1', driftInertia: 0.15 }
 };
 
 const DIFF_PRESETS = {
@@ -174,14 +174,18 @@ class Player extends Entity {
 
         // --- 物理系統 ---
         // 縱向加速 - 每台車有獨立的加速度數值
-        // 速度 > 60 km/h 時，加速度隨速度增加而遞減
+        // 速度 > 50 km/h 時，加速度隨速度增加而遞減
         if (thrust > 0) {
             let currentKmh = Math.abs(this.vy) * 12;
             let effectiveAccel = this.accel;
-            if (currentKmh > 60) {
-                // 速度越高，加速越困難 (60~極速之間線性遞減到 10%)
-                let maxKmh = this.baseMaxSpeed * 12;
-                let ratio = Math.max(0.1, 1 - (currentKmh - 60) / (maxKmh - 60) * 0.9);
+            if (currentKmh > 50) {
+                // 速度越高，加速越困難 (採用次方曲線衰減，超過50後掉速更明顯)
+                // 確保參考極限至少為 100km/h (避免如卡車原廠極速不到 50，在衝刺時計算出負值反向加速的 bug)
+                let maxKmh = Math.max(this.baseMaxSpeed * 12, 100);
+                let progress = Math.min(1, (currentKmh - 50) / (maxKmh - 50));
+
+                // progress^0.5 會讓前期的數值急遽變大，導致 1 - 此大值 會得出更小的 ratio (即衰減更快)
+                let ratio = Math.max(0.01, 1 - Math.pow(progress, 0.5) * 0.99);
                 effectiveAccel = this.accel * ratio;
             }
             this.vy -= effectiveAccel; // 向前加速 (Canvas Y負向)
@@ -245,9 +249,11 @@ class Player extends Entity {
         if (this.y > canvas.height - 200) this.y = canvas.height - 200;
         if (this.y < canvas.height - 350) this.y = canvas.height - 350;
 
-        // 計算真實距離
+        // 計算真實距離 (往前才算，倒車不扣也不加，或者加總量)
         if (this.vy < 0) {
-            GameState.dist += Math.abs(this.vy) * 0.1;
+            let traveled = Math.abs(this.vy) * 0.1;
+            GameState.dist += traveled;
+            GameState.forwardDist += traveled; // 用於計算生成物的距離累加
         }
 
         // --- 狀態更新 ---
@@ -269,7 +275,9 @@ class Player extends Entity {
 
         this.hp -= amount;
         // 撞車減速約 25 km/h，不直接歸零
-        this.vy = Math.min(this.vy + 2.5, 0);
+        // 卡車 (heavy) 車體重，受到碰撞的減速影響較小 (約 12 km/h)
+        let speedLoss = GameState.carType === 'heavy' ? 1.0 : 2.5;
+        this.vy = Math.min(this.vy + speedLoss, 0);
         this.invincibleTimer = 2.0;
         AudioSys.playCrash();
 
@@ -784,9 +792,28 @@ class Item extends Entity {
         this.vy = 0; // 靜止在原地隨背景捲動
     }
 
-    update() {
-        // 道具靜止在地上，隨攝影機前進而往下捲動
-        this.y += -player.vy;
+    update(dt) {
+        // 爆炸慣性物理（Boss 掉寶用）
+        if (this.burstTimer && this.burstTimer > 0) {
+            this.x += this.burstVx;
+            this.y += this.burstVy;
+            // 空氣阻力減速
+            this.burstVx *= 0.96;
+            this.burstVy *= 0.96;
+            this.burstTimer -= (dt || 0.016);
+            if (this.burstTimer <= 0) {
+                this.burstVx = 0;
+                this.burstVy = 0;
+            }
+            // 慣性期間也受玩家速度影響（但較弱）
+            this.y += -player.vy * 0.3;
+        } else {
+            // 道具靜止在地上，隨攝影機前進而往下捲動
+            this.y += -player.vy;
+        }
+        // 邊界限制
+        if (this.x < 10) this.x = 10;
+        if (this.x > canvas.width - 55) this.x = canvas.width - 55;
         if (this.y > canvas.height + 100) this.active = false;
     }
 
@@ -970,6 +997,519 @@ class Terrain extends Entity {
     }
 }
 
+// ==========================================
+// Boss 怪獸系統
+// ==========================================
+class Boss extends Entity {
+    constructor() {
+        super(canvas.width / 2 - 50, -120, 100, 90);
+
+        // ===== 根據難度全面調整 Boss 參數 =====
+        const d = GameState.difficulty;
+
+        // 血量
+        const hpMap = { easy: 100, normal: 200, hard: 300 };
+        this.maxHp = hpMap[d] || 100;
+        this.hp = this.maxHp;
+        this.phase = 'enter'; // 'enter', 'active', 'enraged', 'dead'
+        this.targetY = 80;
+
+        // 移動 AI — Hard 移動更快
+        this.moveDir = 1;
+        this.moveTimer = 0;
+        this.moveSpeed = { easy: 0.7, normal: 1.0, hard: 1.5 }[d];
+        this.enragedMoveSpeed = { easy: 1.0, normal: 1.5, hard: 2.2 }[d];
+        this.floatPhase = Math.random() * Math.PI * 2;
+
+        // 射擊 — Hard 頻率更高
+        this.shootTimer = 2.0;
+        this.shootInterval = { easy: 3.0, normal: 2.5, hard: 2.0 }[d];
+        this.enragedShootInterval = { easy: 2.2, normal: 1.8, hard: 1.3 }[d];
+
+        // 子彈數量 — Hard 更多
+        this.bulletCountMin = { easy: 1, normal: 2, hard: 3 }[d];
+        this.bulletCountMax = { easy: 2, normal: 3, hard: 4 }[d];
+        this.enragedBulletCountMin = { easy: 3, normal: 4, hard: 5 }[d];
+        this.enragedBulletCountMax = { easy: 4, normal: 6, hard: 7 }[d];
+
+        // 子彈反彈次數 — Easy 更少
+        this.bulletMaxBounces = { easy: 2, normal: 3, hard: 4 }[d];
+
+        // 視覺
+        this.flashTimer = 0;
+        this.deathTimer = 0;
+    }
+
+    update(dt) {
+        if (this.phase === 'dead') {
+            this.deathTimer -= dt;
+            if (this.deathTimer <= 0) {
+                this.active = false;
+                GameState.bossActive = false;
+                GameState.bossDefeated++;
+                this.spawnLoot();
+            }
+            return;
+        }
+
+        // 入場動畫：緩慢下降
+        if (this.phase === 'enter') {
+            this.y += 1.5; // 往下移動
+            // 也受到玩家速度影響（保持相對位置）
+            this.y += -player.vy;
+            if (this.y >= this.targetY) {
+                this.y = this.targetY;
+                this.phase = 'active';
+            }
+            return;
+        }
+
+        // Y 軸跟隨玩家速度（視覺固定在螢幕上方）
+        this.y += -player.vy;
+
+        // 上下微幅浮動（呼吸感）
+        this.floatPhase += dt * 2;
+        let floatOffset = Math.sin(this.floatPhase) * 8;
+        let baseY = this.targetY + floatOffset;
+        this.y += (baseY - this.y) * 0.05;
+
+        // 左右隨機移動
+        this.moveTimer -= dt;
+        if (this.moveTimer <= 0) {
+            this.moveDir = Math.random() < 0.5 ? -1 : 1;
+            this.moveTimer = 1.5 + Math.random() * 2; // 每 1.5~3.5 秒換方向
+        }
+
+        this.x += this.moveDir * this.moveSpeed;
+        // 碰邊反彈
+        if (this.x < 30) { this.x = 30; this.moveDir = 1; }
+        if (this.x > canvas.width - 30 - this.w) { this.x = canvas.width - 30 - this.w; this.moveDir = -1; }
+
+        // 階段切換：HP <= 50% 進入憤怒模式
+        if (this.phase === 'active' && this.hp <= this.maxHp * 0.5) {
+            this.phase = 'enraged';
+            this.moveSpeed = this.enragedMoveSpeed;
+            showEffectNotice("⚠️ 魔王進入憤怒模式！");
+        }
+
+        // 射擊系統
+        let interval = this.phase === 'enraged' ? this.enragedShootInterval : this.shootInterval;
+        this.shootTimer -= dt;
+        if (this.shootTimer <= 0) {
+            this.shoot();
+            this.shootTimer = interval + (Math.random() - 0.5) * 0.5;
+        }
+
+        // 受傷閃爍
+        if (this.flashTimer > 0) this.flashTimer -= dt;
+    }
+
+    shoot() {
+        let bulletCount = this.phase === 'enraged'
+            ? (this.enragedBulletCountMin + Math.floor(Math.random() * (this.enragedBulletCountMax - this.enragedBulletCountMin + 1)))
+            : (this.bulletCountMin + Math.floor(Math.random() * (this.bulletCountMax - this.bulletCountMin + 1)));
+        let isEnraged = this.phase === 'enraged';
+
+        for (let i = 0; i < bulletCount; i++) {
+            let bx = this.x + this.w / 2 - 8 + (Math.random() - 0.5) * 40;
+            let by = this.y + this.h;
+            let vx = (Math.random() - 0.5) * 3;
+            let vy = 1.0 + Math.random() * 0.8;
+            bossBullets.push(new BossBullet(bx, by, vx, vy, isEnraged, this.bulletMaxBounces));
+        }
+    }
+
+    takeDamage(amount) {
+        this.hp -= amount;
+        this.flashTimer = 0.15;
+        if (this.hp <= 0) {
+            this.hp = 0;
+            this.phase = 'dead';
+            this.deathTimer = 0.8; // 死亡動畫持續 0.8 秒
+            AudioSys.playExplosion();
+            createExplosion(this.x + this.w / 2, this.y + this.h / 2, '#ff6b6b');
+            createExplosion(this.x + this.w / 2 - 20, this.y + this.h / 2 + 10, '#feca57');
+            createExplosion(this.x + this.w / 2 + 20, this.y + this.h / 2 - 10, '#ff9ff3');
+            // 清除所有 Boss 子彈
+            bossBullets = [];
+            showEffectNotice("🎉 魔王被擊敗！");
+        } else {
+            AudioSys.playCrash();
+        }
+    }
+
+    spawnLoot() {
+        let lootCount = 8 + Math.floor(Math.random() * 5); // 8~12 個寶物
+        let cx = this.x + this.w / 2;
+        let cy = this.y + this.h / 2;
+
+        for (let i = 0; i < lootCount; i++) {
+            let angle = (Math.PI * 2 / lootCount) * i + (Math.random() - 0.5) * 0.5;
+            let speed = 2 + Math.random() * 3;
+            let r = Math.random();
+            let type = 'coin';
+            if (r > 0.4 && r <= 0.6) type = 'time';
+            else if (r > 0.6 && r <= 0.75) type = 'missile';
+            else if (r > 0.75 && r <= 0.9) type = 'hp';
+            else if (r > 0.9 && r <= 0.95) type = 'shield';
+            else if (r > 0.95) type = 'boost';
+
+            let item = new Item(cx - 22, cy - 22, type);
+            item.burstVx = Math.cos(angle) * speed;
+            item.burstVy = Math.sin(angle) * speed;
+            item.burstTimer = 1.5; // 爆炸慣性持續 1.5 秒
+            items.push(item);
+        }
+    }
+
+    draw(ctx) {
+        if (!this.active) return;
+
+        // 死亡閃爍
+        if (this.phase === 'dead') {
+            if (Math.floor(Date.now() / 60) % 2 === 0) return;
+        }
+
+        // 受傷閃爍
+        if (this.flashTimer > 0 && Math.floor(Date.now() / 50) % 2 === 0) {
+            ctx.globalAlpha = 0.5;
+        }
+
+        ctx.save();
+        let cx = this.x + this.w / 2;
+        let cy = this.y + this.h / 2;
+
+        let isEnraged = this.phase === 'enraged' || this.phase === 'dead';
+
+        // ====== 奧特曼風格怪獸 (ウルトラ怪獣) ======
+
+        // --- 身體光暈 ---
+        ctx.shadowColor = isEnraged ? '#ff4400' : '#2d8a4e';
+        ctx.shadowBlur = isEnraged ? 25 : 12;
+
+        // --- 肩甲 / 護肩尖刺 ---
+        ctx.fillStyle = isEnraged ? '#8b2500' : '#2f4f2f';
+        // 左肩刺
+        ctx.beginPath();
+        ctx.moveTo(cx - 42, cy - 5);
+        ctx.lineTo(cx - 60, cy - 30);
+        ctx.lineTo(cx - 48, cy - 18);
+        ctx.lineTo(cx - 55, cy - 45);
+        ctx.lineTo(cx - 35, cy - 15);
+        ctx.closePath();
+        ctx.fill();
+        // 右肩刺
+        ctx.beginPath();
+        ctx.moveTo(cx + 42, cy - 5);
+        ctx.lineTo(cx + 60, cy - 30);
+        ctx.lineTo(cx + 48, cy - 18);
+        ctx.lineTo(cx + 55, cy - 45);
+        ctx.lineTo(cx + 35, cy - 15);
+        ctx.closePath();
+        ctx.fill();
+
+        // --- 身體主體 (怪獸裝甲軀幹) ---
+        let bodyGrad = ctx.createRadialGradient(cx, cy + 5, 5, cx, cy, 55);
+        if (isEnraged) {
+            bodyGrad.addColorStop(0, '#ff6633');
+            bodyGrad.addColorStop(0.4, '#8b2500');
+            bodyGrad.addColorStop(0.8, '#5a1000');
+            bodyGrad.addColorStop(1, '#3b0800');
+        } else {
+            bodyGrad.addColorStop(0, '#4a7a5a');
+            bodyGrad.addColorStop(0.4, '#2f5a3f');
+            bodyGrad.addColorStop(0.8, '#1a3a25');
+            bodyGrad.addColorStop(1, '#0d1f14');
+        }
+        ctx.fillStyle = bodyGrad;
+        ctx.beginPath();
+        ctx.ellipse(cx, cy + 5, this.w / 2 + 2, this.h / 2, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // --- 胸甲紋路 (V字形裝甲線條) ---
+        ctx.strokeStyle = isEnraged ? '#ff9944' : '#5a9a6a';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(cx - 25, cy - 15);
+        ctx.lineTo(cx, cy + 20);
+        ctx.lineTo(cx + 25, cy - 15);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(cx - 18, cy - 10);
+        ctx.lineTo(cx, cy + 12);
+        ctx.lineTo(cx + 18, cy - 10);
+        ctx.stroke();
+
+        // --- 頭部 (上方突出) ---
+        let headGrad = ctx.createRadialGradient(cx, cy - 22, 3, cx, cy - 20, 28);
+        if (isEnraged) {
+            headGrad.addColorStop(0, '#cc4400');
+            headGrad.addColorStop(0.6, '#7a2000');
+            headGrad.addColorStop(1, '#4a1000');
+        } else {
+            headGrad.addColorStop(0, '#3a6a4a');
+            headGrad.addColorStop(0.6, '#254a32');
+            headGrad.addColorStop(1, '#152a1d');
+        }
+        ctx.fillStyle = headGrad;
+        ctx.beginPath();
+        ctx.ellipse(cx, cy - 22, 28, 24, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // --- 頭頂冠飾 (三叉角) ---
+        ctx.fillStyle = isEnraged ? '#ff7733' : '#3a8a5a';
+        // 中央角
+        ctx.beginPath();
+        ctx.moveTo(cx - 5, cy - 42);
+        ctx.lineTo(cx, cy - 68);
+        ctx.lineTo(cx + 5, cy - 42);
+        ctx.closePath();
+        ctx.fill();
+        // 左角
+        ctx.beginPath();
+        ctx.moveTo(cx - 18, cy - 35);
+        ctx.lineTo(cx - 30, cy - 60);
+        ctx.lineTo(cx - 10, cy - 38);
+        ctx.closePath();
+        ctx.fill();
+        // 右角
+        ctx.beginPath();
+        ctx.moveTo(cx + 18, cy - 35);
+        ctx.lineTo(cx + 30, cy - 60);
+        ctx.lineTo(cx + 10, cy - 38);
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.shadowBlur = 0;
+
+        // --- 複眼 (昆蟲風格大橢圓眼，發光) ---
+        ctx.shadowColor = isEnraged ? '#ff6600' : '#ffaa00';
+        ctx.shadowBlur = 10;
+
+        // 左複眼
+        ctx.save();
+        ctx.translate(cx - 14, cy - 24);
+        ctx.rotate(-0.3);
+        let eyeGradL = ctx.createRadialGradient(0, 0, 1, 0, 0, 11);
+        eyeGradL.addColorStop(0, isEnraged ? '#ffcc00' : '#ffee44');
+        eyeGradL.addColorStop(0.5, isEnraged ? '#ff6600' : '#ffaa00');
+        eyeGradL.addColorStop(1, isEnraged ? '#cc3300' : '#cc8800');
+        ctx.fillStyle = eyeGradL;
+        ctx.beginPath();
+        ctx.ellipse(0, 0, 10, 12, 0, 0, Math.PI * 2);
+        ctx.fill();
+        // 複眼紋路
+        ctx.strokeStyle = 'rgba(0,0,0,0.3)';
+        ctx.lineWidth = 0.5;
+        for (let i = -8; i <= 8; i += 4) {
+            ctx.beginPath();
+            ctx.moveTo(i, -11);
+            ctx.lineTo(i, 11);
+            ctx.stroke();
+        }
+        // 高光
+        ctx.fillStyle = 'rgba(255,255,255,0.6)';
+        ctx.beginPath();
+        ctx.ellipse(-3, -4, 3, 4, -0.3, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+
+        // 右複眼
+        ctx.save();
+        ctx.translate(cx + 14, cy - 24);
+        ctx.rotate(0.3);
+        let eyeGradR = ctx.createRadialGradient(0, 0, 1, 0, 0, 11);
+        eyeGradR.addColorStop(0, isEnraged ? '#ffcc00' : '#ffee44');
+        eyeGradR.addColorStop(0.5, isEnraged ? '#ff6600' : '#ffaa00');
+        eyeGradR.addColorStop(1, isEnraged ? '#cc3300' : '#cc8800');
+        ctx.fillStyle = eyeGradR;
+        ctx.beginPath();
+        ctx.ellipse(0, 0, 10, 12, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(0,0,0,0.3)';
+        ctx.lineWidth = 0.5;
+        for (let i = -8; i <= 8; i += 4) {
+            ctx.beginPath();
+            ctx.moveTo(i, -11);
+            ctx.lineTo(i, 11);
+            ctx.stroke();
+        }
+        ctx.fillStyle = 'rgba(255,255,255,0.6)';
+        ctx.beginPath();
+        ctx.ellipse(-3, -4, 3, 4, 0.3, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+
+        ctx.shadowBlur = 0;
+
+        // --- 下顎 / 大顎鉗 ---
+        ctx.fillStyle = isEnraged ? '#993300' : '#1f3f2a';
+        // 左鉗
+        ctx.beginPath();
+        ctx.moveTo(cx - 12, cy - 10);
+        ctx.quadraticCurveTo(cx - 25, cy + 2, cx - 22, cy + 10);
+        ctx.quadraticCurveTo(cx - 18, cy + 5, cx - 8, cy - 5);
+        ctx.closePath();
+        ctx.fill();
+        // 右鉗
+        ctx.beginPath();
+        ctx.moveTo(cx + 12, cy - 10);
+        ctx.quadraticCurveTo(cx + 25, cy + 2, cx + 22, cy + 10);
+        ctx.quadraticCurveTo(cx + 18, cy + 5, cx + 8, cy - 5);
+        ctx.closePath();
+        ctx.fill();
+        // 鉗尖 (白色尖端)
+        ctx.fillStyle = isEnraged ? '#ffcc99' : '#aaddbb';
+        ctx.beginPath();
+        ctx.arc(cx - 22, cy + 9, 2.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(cx + 22, cy + 9, 2.5, 0, Math.PI * 2);
+        ctx.fill();
+
+        // --- 憤怒模式發光裂紋 ---
+        if (isEnraged) {
+            ctx.strokeStyle = 'rgba(255, 150, 0, 0.7)';
+            ctx.lineWidth = 1.5;
+            ctx.shadowColor = '#ff6600';
+            ctx.shadowBlur = 8;
+            // 隨機閃爍的裂紋
+            let t = Date.now() * 0.003;
+            ctx.beginPath();
+            ctx.moveTo(cx - 10, cy + 5);
+            ctx.lineTo(cx - 5 + Math.sin(t) * 3, cy + 15);
+            ctx.lineTo(cx + 2, cy + 8);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(cx + 8, cy);
+            ctx.lineTo(cx + 15, cy + 12 + Math.cos(t) * 2);
+            ctx.lineTo(cx + 10, cy + 18);
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+        }
+
+        ctx.restore();
+        ctx.globalAlpha = 1.0;
+
+        // --- Boss 血條 (畫面上方) ---
+        this.drawHPBar(ctx);
+    }
+
+    drawHPBar(ctx) {
+        let barW = Math.min(300, canvas.width - 60);
+        let barH = 12;
+        let barX = (canvas.width - barW) / 2;
+        let barY = 15;
+
+        // 標題
+        ctx.fillStyle = this.phase === 'enraged' ? '#ff4444' : '#e74c3c';
+        ctx.font = 'bold 14px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(this.phase === 'enraged' ? '💀 魔王 (憤怒)' : '👹 魔王', canvas.width / 2, barY - 2);
+
+        // 血條背景
+        ctx.fillStyle = 'rgba(0,0,0,0.6)';
+        ctx.fillRect(barX - 2, barY + 2, barW + 4, barH + 4);
+
+        // 血條底色
+        ctx.fillStyle = '#4a0000';
+        ctx.fillRect(barX, barY + 4, barW, barH);
+
+        // 血條填充
+        let hpRatio = this.hp / this.maxHp;
+        let fillColor = hpRatio > 0.5 ? '#e74c3c' : (hpRatio > 0.25 ? '#f39c12' : '#ff0000');
+        ctx.fillStyle = fillColor;
+        ctx.fillRect(barX, barY + 4, barW * hpRatio, barH);
+
+        // 血條光澤
+        ctx.fillStyle = 'rgba(255,255,255,0.2)';
+        ctx.fillRect(barX, barY + 4, barW * hpRatio, barH / 2);
+
+        // HP 數字
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 10px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(`${this.hp} / ${this.maxHp}`, canvas.width / 2, barY + 13);
+    }
+}
+
+class BossBullet extends Entity {
+    constructor(x, y, vx, vy, isEnraged, maxBounces) {
+        super(x, y, 24, 24);
+        this.vx = vx;
+        this.vy = vy;
+        this.bounceCount = 0;
+        this.maxBounces = maxBounces || 3;
+        this.isEnraged = isEnraged;
+        this.spawnTime = Date.now();
+    }
+
+    update() {
+        this.x += this.vx;
+        this.y += this.vy - player.vy; // Y 軸受玩家速度影響
+
+        // 碰左右牆反彈
+        if (this.x <= 20) {
+            this.x = 20;
+            this.vx = Math.abs(this.vx);
+            this.bounceCount++;
+        }
+        if (this.x + this.w >= canvas.width - 20) {
+            this.x = canvas.width - 20 - this.w;
+            this.vx = -Math.abs(this.vx);
+            this.bounceCount++;
+        }
+
+        // 反彈次數超過上限 -> 消失
+        if (this.bounceCount >= this.maxBounces) {
+            this.active = false;
+        }
+
+        // 超出畫面 -> 消失
+        if (this.y > canvas.height + 100 || this.y < -200) {
+            this.active = false;
+        }
+    }
+
+    draw(ctx) {
+        ctx.save();
+        let cx = this.x + this.w / 2;
+        let cy = this.y + this.h / 2;
+
+        // 旋轉動畫
+        let angle = (Date.now() - this.spawnTime) * 0.005;
+
+        ctx.translate(cx, cy);
+        ctx.rotate(angle);
+
+        // 外層光暈
+        ctx.shadowColor = this.isEnraged ? '#ff2200' : '#e74c3c';
+        ctx.shadowBlur = 16;
+
+        // 子彈本體（紅色大型能量球）
+        ctx.fillStyle = this.isEnraged ? '#ff2200' : '#e74c3c';
+        ctx.beginPath();
+        for (let i = 0; i < 5; i++) {
+            let r1 = 12, r2 = 6;
+            let a1 = (Math.PI * 2 / 5) * i - Math.PI / 2;
+            let a2 = a1 + Math.PI / 5;
+            ctx.lineTo(Math.cos(a1) * r1, Math.sin(a1) * r1);
+            ctx.lineTo(Math.cos(a2) * r2, Math.sin(a2) * r2);
+        }
+        ctx.closePath();
+        ctx.fill();
+
+        // 核心白色
+        ctx.fillStyle = 'rgba(255,255,255,0.7)';
+        ctx.beginPath();
+        ctx.arc(0, 0, 5, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.shadowBlur = 0;
+        ctx.restore();
+    }
+}
+
 class Particle {
     constructor(x, y, color) {
         this.x = x;
@@ -1016,6 +1556,8 @@ let enemies = [];
 let items = [];
 let terrains = [];
 let particles = [];
+let boss = null;
+let bossBullets = [];
 
 function initGame() {
     AudioSys.init();
@@ -1031,15 +1573,26 @@ function initGame() {
     items = [];
     terrains = [];
     particles = [];
+    boss = null;
+    bossBullets = [];
 
     const diff = DIFF_PRESETS[GameState.difficulty];
     GameState.time = diff.startTime;
     GameState.dist = 0;
+    GameState.forwardDist = 0;
+    GameState.nextSpawnDist = 10;
     GameState.coins = 0;
     GameState.offsetY = 0;
-    GameState.maxRecordedSpeed = 0; // 重置最高時速
+    GameState.maxRecordedSpeed = 0;
+    GameState.bossActive = false;
+    GameState.bossDefeated = 0;
+    GameState.bossWarningTimer = 0;
     GameState.lastFrameTime = performance.now();
     GameState.isRunning = true;
+
+    // ★ 測試用：一進遊戲就生成 Boss
+    boss = new Boss();
+    GameState.bossActive = true;
 
     screens.menu.classList.remove('active');
     screens.game.classList.add('active');
@@ -1057,6 +1610,15 @@ function endGame() {
     screens.gameOver.classList.add('active');
     document.getElementById('go-dist').innerText = (GameState.dist / 1000).toFixed(2);
     document.getElementById('go-max-speed').innerText = GameState.maxRecordedSpeed; // 顯示最高時速
+
+    // 重置存檔區
+    document.getElementById('save-score-section').style.display = 'block';
+    document.getElementById('player-name-input').style.display = 'inline-block';
+    document.getElementById('player-name-input').value = '';
+    document.getElementById('save-score-btn').style.display = 'inline-block';
+    document.getElementById('save-msg').style.display = 'none';
+
+    updateLeaderboardView();
 }
 
 function showEffectNotice(text) {
@@ -1075,8 +1637,39 @@ function updateHUD() {
     if (absKmh > GameState.maxRecordedSpeed) {
         GameState.maxRecordedSpeed = absKmh; // 記錄最高時速
     }
+
     hud.speed.innerText = rawKmh;
-    hud.maxspd.innerText = Math.round(player.baseMaxSpeed * 12);
+    let maxKmh = Math.round(player.baseMaxSpeed * 12);
+    hud.maxspd.innerText = maxKmh;
+
+    // 動態更新時速儀錶 指針與軌道
+    let speedRatio = Math.max(0, Math.min(absKmh / maxKmh, 2.5)); // 預防超過太多(最高轉到破錶)
+
+    // 軌道填充 (長度 141.4)
+    let fillRatio = Math.min(speedRatio, 1);
+    let offset = 141.4 - (141.4 * fillRatio);
+    let arcPath = document.getElementById('speed-arc-fill');
+    if (arcPath) {
+        arcPath.style.strokeDashoffset = offset;
+
+        // 破錶變色 (超過極限就變動顏色)
+        let speedTextEl = document.querySelector('.current-speed');
+        if (speedRatio > 1) {
+            arcPath.style.stroke = '#f1c40f'; // 衝刺時顯示黃綠色
+            if (speedTextEl) speedTextEl.style.color = '#f1c40f';
+        } else {
+            arcPath.style.stroke = '#2ecc71'; // 綠色
+            if (speedTextEl) speedTextEl.style.color = '#2ecc71';
+        }
+    }
+
+    // 指針轉動 (半圓角度範圍從 -90 到 90)
+    let needleDeg = -90 + (speedRatio * 180);
+    needleDeg = Math.min(135, needleDeg); // 限制指針最大角度(135度大約是右下角破錶)
+    let needleGrp = document.getElementById('speed-needle-grp');
+    if (needleGrp) {
+        needleGrp.style.transform = `rotate(${needleDeg}deg)`;
+    }
     hud.accel.innerText = (player.currentAccel || 0).toFixed(3);
     hud.ammo.innerText = 'Lv.' + player.missileLevel;
     hud.coins.innerText = GameState.coins;
@@ -1140,43 +1733,45 @@ function update(dt) {
     let speedRatio = Math.abs(player.vy) / player.baseMaxSpeed;
     AudioSys.updateEngineSpeed(speedRatio);
 
-    // 生成車流 (Spawner)
+    // 生成車流 (Spawner) - 只在玩家往前開時才生成
     const diff = DIFF_PRESETS[GameState.difficulty];
-    if (Math.random() < diff.trafficRate) {
-        let isFast = Math.random() < (GameState.difficulty === 'hard' ? 0.4 : 0.15);
-        let w = isFast ? 35 : 45;
-        let h = isFast ? 60 : 80;
-        // 限制車輛生成在路面範圍內 (道路兩側留邊)
-        let roadLeft = 30;
-        let roadRight = canvas.width - 30 - w;
-        let x = roadLeft + Math.random() * (roadRight - roadLeft);
-        let y = -200;
-        let color = isFast ? '#8e44ad' : '#27ae60';
+    if (player.vy < 0) {
+        let effectiveTrafficRate = GameState.bossActive ? diff.trafficRate * 0.15 : diff.trafficRate;
+        if (Math.random() < effectiveTrafficRate) {
+            let isFast = Math.random() < (GameState.difficulty === 'hard' ? 0.4 : 0.15);
+            let w = isFast ? 35 : 45;
+            let h = isFast ? 60 : 80;
+            let roadLeft = 30;
+            let roadRight = canvas.width - 30 - w;
+            let x = roadLeft + Math.random() * (roadRight - roadLeft);
+            let y = -200;
+            let color = isFast ? '#8e44ad' : '#27ae60';
 
-        let overlap = enemies.some(e => Math.abs(e.x - x) < 60 && e.y < 0);
-        if (!overlap) enemies.push(new Traffic(x, y, w, h, isFast, color));
-    }
+            let overlap = enemies.some(e => Math.abs(e.x - x) < 60 && e.y < 0);
+            if (!overlap) enemies.push(new Traffic(x, y, w, h, isFast, color));
+        }
 
-    // 生成路面道具 (金幣、沙漏、愛心會在路上隨機出現)
-    if (Math.random() < 0.008) {
-        let r = Math.random();
-        let type = r < 0.6 ? 'coin' : (r < 0.85 ? 'time' : 'hp');
-        items.push(new Item(30 + Math.random() * (canvas.width - 90), -80, type));
-    }
-    // 生成飛彈箱 (比金幣稀有)
-    if (Math.random() < 0.003) {
-        items.push(new Item(30 + Math.random() * (canvas.width - 90), -80, 'missile'));
-    }
+        // 生成路面道具 (金幣、沙漏、愛心會在路上隨機出現)
+        if (Math.random() < 0.008) {
+            let r = Math.random();
+            let type = r < 0.6 ? 'coin' : (r < 0.85 ? 'time' : 'hp');
+            items.push(new Item(30 + Math.random() * (canvas.width - 90), -80, type));
+        }
+        // 生成飛彈箱 (比金幣稀有)
+        if (Math.random() < 0.003) {
+            items.push(new Item(30 + Math.random() * (canvas.width - 90), -80, 'missile'));
+        }
 
-    // 生成地形 (泥濞/冰原)
-    if (Math.random() < 0.003) {
-        let type = Math.random() < 0.5 ? 'mud' : 'ice';
-        terrains.push(new Terrain(Math.random() * canvas.width, -300, 120 + Math.random() * 80, 100 + Math.random() * 80, type));
-    }
-    // 生成稀有道具 (護盾/衝刺)
-    if (Math.random() < 0.001) {
-        let type = Math.random() < 0.5 ? 'shield' : 'boost';
-        items.push(new Item(30 + Math.random() * (canvas.width - 90), -80, type));
+        // 生成地形 (泥濞/冰原)
+        if (Math.random() < 0.003) {
+            let type = Math.random() < 0.5 ? 'mud' : 'ice';
+            terrains.push(new Terrain(Math.random() * canvas.width, -300, 120 + Math.random() * 80, 100 + Math.random() * 80, type));
+        }
+        // 生成稀有道具 (護盾/衝刺)
+        if (Math.random() < 0.001) {
+            let type = Math.random() < 0.5 ? 'shield' : 'boost';
+            items.push(new Item(30 + Math.random() * (canvas.width - 90), -80, type));
+        }
     }
 
     // 更新並過濾無效實體
@@ -1186,7 +1781,7 @@ function update(dt) {
     enemies.forEach(e => e.update());
     enemies = enemies.filter(e => e.active);
 
-    items.forEach(i => i.update());
+    items.forEach(i => i.update(dt));
     items = items.filter(i => i.active);
 
     terrains.forEach(t => t.update());
@@ -1195,12 +1790,20 @@ function update(dt) {
     particles.forEach(p => p.update(dt));
     particles = particles.filter(p => p.life > 0);
 
+    // Boss 更新
+    if (boss && boss.active) {
+        boss.update(dt);
+    }
+    bossBullets.forEach(b => b.update());
+    bossBullets = bossBullets.filter(b => b.active);
+
     // 碰撞偵測 (Collision Engine)
     // 1. 玩家撞車
     enemies.forEach(e => {
         if (player.isCollidingWith(e)) {
+            let wasBoosting = player.boostTimer > 0;
             player.takeDamage(1);
-            if (player.boostTimer > 0) {
+            if (wasBoosting) {
                 // 如果在衝刺狀態，可以直接把敵車撞飛（但自己會受傷中斷）
                 e.takeDamage(10);
             }
@@ -1219,7 +1822,32 @@ function update(dt) {
         });
     });
 
-    // 3. 玩家吃道具
+    // 3. 飛彈打 Boss
+    if (boss && boss.active && boss.phase !== 'dead') {
+        missiles.forEach(m => {
+            if (m.active && boss.active && m.isCollidingWith(boss)) {
+                m.active = false;
+                boss.takeDamage(m.damage);
+                createExplosion(m.x + m.w / 2, m.y, '#ff6b6b');
+            }
+        });
+
+        // 4. 玩家撞 Boss 身體
+        if (player.isCollidingWith(boss)) {
+            player.takeDamage(2);
+        }
+    }
+
+    // 5. Boss 子彈打玩家
+    bossBullets.forEach(b => {
+        if (b.active && player.isCollidingWith(b)) {
+            b.active = false;
+            player.takeDamage(1);
+            createExplosion(b.x + b.w / 2, b.y + b.h / 2, '#a855f7');
+        }
+    });
+
+    // 6. 玩家吃道具
     items.forEach(i => {
         if (player.isCollidingWith(i)) {
             i.active = false;
@@ -1238,7 +1866,6 @@ function update(dt) {
                 GameState.time += 3;
                 showEffectNotice("時間 +3秒");
             } else if (i.type === 'missile') {
-                // 吃到飛彈箱 = 升級
                 player.missileLevel = Math.min(3, player.missileLevel + 1);
                 showEffectNotice('飛彈升級 Lv.' + player.missileLevel + '！');
             } else if (i.type === 'shield') {
@@ -1292,11 +1919,13 @@ function draw() {
     // 重設 dash
     ctx.setLineDash([]);
 
-    // Entities Draw calls (順序: 地形 -> 道具 -> 車流 -> 玩家 -> 飛彈 -> 粒子特效)
+    // Entities Draw calls (順序: 地形 -> 道具 -> 車流 -> Boss子彈 -> 玩家 -> Boss -> 飛彈 -> 粒子特效)
     terrains.forEach(t => t.draw(ctx));
     items.forEach(i => i.draw(ctx));
     enemies.forEach(e => e.draw(ctx));
+    bossBullets.forEach(b => b.draw(ctx));
     player.draw(ctx);
+    if (boss && boss.active) boss.draw(ctx);
     missiles.forEach(m => m.draw(ctx));
     particles.forEach(p => p.draw(ctx));
 
@@ -1315,6 +1944,23 @@ function draw() {
         ctx.strokeStyle = 'rgba(0, 210, 211, 0.15)';
         ctx.lineWidth = 10;
         ctx.strokeRect(5, 5, canvas.width - 10, canvas.height - 10);
+    }
+
+    // WARNING 動畫 (Boss 即將出現)
+    if (GameState.bossWarningTimer > 0) {
+        let flash = Math.floor(Date.now() / 200) % 2 === 0;
+        if (flash) {
+            ctx.fillStyle = 'rgba(255, 0, 0, 0.15)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+        }
+        ctx.fillStyle = flash ? '#ff4444' : '#ff8888';
+        ctx.font = 'bold 36px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('⚠️ WARNING ⚠️', canvas.width / 2, canvas.height / 3);
+        ctx.font = 'bold 18px sans-serif';
+        ctx.fillStyle = '#fff';
+        ctx.fillText('魔王即將出現！', canvas.width / 2, canvas.height / 3 + 45);
     }
 }
 
@@ -1350,6 +1996,53 @@ document.getElementById('start-btn').addEventListener('click', () => {
 document.getElementById('restart-btn').addEventListener('click', () => {
     screens.gameOver.classList.remove('active');
     screens.menu.classList.add('active');
+});
+
+// --- Leaderboard Logic ---
+function getLeaderboard() {
+    let lb = localStorage.getItem('racing_leaderboard');
+    if (lb) return JSON.parse(lb);
+    return [];
+}
+
+function saveToLeaderboard(name, distance, maxSpeed) {
+    let lb = getLeaderboard();
+    lb.push({ name: name || 'Anonymous', distance: parseFloat(distance), maxSpeed: maxSpeed });
+    lb.sort((a, b) => b.distance - a.distance);
+    lb = lb.slice(0, 10); // keep top 10
+    localStorage.setItem('racing_leaderboard', JSON.stringify(lb));
+}
+
+function updateLeaderboardView() {
+    let lb = getLeaderboard();
+    let container = document.getElementById('leaderboard-list');
+    container.innerHTML = '';
+    if (lb.length === 0) {
+        container.innerHTML = '<p style="text-align:center; color:#ccc;">暫無紀錄</p>';
+        return;
+    }
+    lb.forEach((entry, idx) => {
+        let div = document.createElement('div');
+        div.style.display = 'flex';
+        div.style.justifyContent = 'space-between';
+        div.style.padding = '5px 0';
+        div.style.borderBottom = '1px solid rgba(255,255,255,0.1)';
+        div.innerHTML = `<span><span style="color:#aeb9cc;width:20px;display:inline-block;">${idx + 1}.</span> ${entry.name}</span> <span style="color:#2ecc71;">${entry.distance.toFixed(2)}km <small style="color:#e74c3c;">(${entry.maxSpeed}km/h)</small></span>`;
+        container.appendChild(div);
+    });
+}
+
+document.getElementById('save-score-btn').addEventListener('click', () => {
+    let name = document.getElementById('player-name-input').value.trim();
+    if (!name) name = 'Player';
+    let dist = (GameState.dist / 1000).toFixed(2);
+    let maxSpd = GameState.maxRecordedSpeed;
+    saveToLeaderboard(name, dist, maxSpd);
+
+    document.getElementById('player-name-input').style.display = 'none';
+    document.getElementById('save-score-btn').style.display = 'none';
+    document.getElementById('save-msg').style.display = 'block';
+    updateLeaderboardView();
 });
 
 // ==========================================
