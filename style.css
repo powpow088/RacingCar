@@ -357,18 +357,33 @@ canvas {
     flex-direction: column;
     align-items: center;
     gap: 8px;
+    /* 縮短上下間距 */
 }
 
 .steer-row {
     display: flex;
     gap: 15px;
+    /* 增加左右間距以容納上方的加速鈕視覺 */
+    margin-top: -30px;
+    /* 讓左右鍵往上貼近加速鍵，形成三角形排列 */
+    position: relative;
+    z-index: 2;
+}
+
+#btn-accel {
+    position: relative;
+    z-index: 1;
+    /* 加速鍵墊在下層避免擋住左右鍵觸控 */
 }
 
 .control-group-right {
     display: flex;
     flex-direction: column;
     align-items: center;
+    justify-content: center;
+    /* 讓發射獨立置中偏上 */
     gap: 8px;
+    height: 100%;
 }
 
 .v-btn {
@@ -401,6 +416,8 @@ canvas {
 .v-btn.brake {
     width: 60px;
     height: 60px;
+    margin-top: -10px;
+    /* 讓煞車往上靠一點 */
 }
 
 .v-btn.brake {

@@ -94,15 +94,22 @@
         <!-- 虛擬按鍵 (Mobile Only) -->
         <div id="virtual-controls">
             <div class="control-group-left">
+                <!-- 加速鈕移到左右的中間上方 -->
+                <button class="v-btn accel" id="btn-accel">▲</button>
                 <div class="steer-row">
                     <button class="v-btn steer" id="btn-left">◀</button>
+                    <!-- 中間保留空位給上方加速按鈕的視覺空間 -->
+                    <div style="width: 20px;"></div>
                     <button class="v-btn steer" id="btn-right">▶</button>
                 </div>
+                <!-- 煞車跟原本一樣放在下面 -->
                 <button class="v-btn brake" id="btn-brake">▼</button>
             </div>
             <div class="control-group-right">
-                <button class="v-btn accel" id="btn-accel">▲</button>
+                <!-- 原本加速的位置換成發射 -->
                 <button class="v-btn action" id="btn-fire">🎯</button>
+                <!-- 下面保留空格或調整 height 以配合左側四鍵佈局的高度 -->
+                <div style="height: 75px;"></div>
             </div>
         </div>
 

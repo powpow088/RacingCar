@@ -34,8 +34,8 @@ const CAR_PRESETS = {
 };
 
 const DIFF_PRESETS = {
-    easy: { startTime: 300, trafficRate: 0.004, trafficSpeedMulti: 0.8 },
-    normal: { startTime: 240, trafficRate: 0.012, trafficSpeedMulti: 1.0 },
+    easy: { startTime: 180, trafficRate: 0.004, trafficSpeedMulti: 0.8 },
+    normal: { startTime: 180, trafficRate: 0.012, trafficSpeedMulti: 1.0 },
     hard: { startTime: 180, trafficRate: 0.025, trafficSpeedMulti: 1.5 }
 };
 
@@ -286,9 +286,9 @@ class Player extends Entity {
         // 撞車時飛彈降級 (最低 Lv1)
         if (this.missileLevel > 1) {
             this.missileLevel--;
-            showEffectNotice("血量 -1 | 飛彈降級！");
+            showEffectNotice("血量 -" + amount + " | 飛彈降級！");
         } else {
-            showEffectNotice("血量 -1");
+            showEffectNotice("血量 -" + amount);
         }
         updateHUD();
 
@@ -296,7 +296,9 @@ class Player extends Entity {
         if (this.boostTimer > 0) this.boostTimer = 0;
 
         if (this.hp <= 0) {
-            endGame();
+            this.hp = 0;
+            updateHUD();
+            endGame('車輛損毀！');
         }
     }
 
@@ -1003,39 +1005,88 @@ class Terrain extends Entity {
 // Boss 怪獸系統
 // ==========================================
 class Boss extends Entity {
-    constructor() {
+    constructor(bossType) {
         super(canvas.width / 2 - 50, -120, 100, 90);
+        this.bossType = bossType || 'kaiju'; // 'kaiju', 'tank', 'ufo'
 
-        // ===== 根據難度全面調整 Boss 參數 =====
         const d = GameState.difficulty;
 
-        // 血量
-        const hpMap = { easy: 100, normal: 200, hard: 300 };
-        this.maxHp = hpMap[d] || 100;
-        this.hp = this.maxHp;
-        this.phase = 'enter'; // 'enter', 'active', 'enraged', 'dead'
-        this.targetY = 80;
+        // ===== 根據 Boss 類型 + 難度設定所有參數 =====
+        const BOSS_STATS = {
+            kaiju: {
+                hp: { easy: 100, normal: 200, hard: 300 },
+                moveSpeed: { easy: 0.7, normal: 1.0, hard: 1.5 },
+                enragedMoveSpeed: { easy: 1.0, normal: 1.5, hard: 2.2 },
+                shootInterval: { easy: 3.0, normal: 2.5, hard: 2.0 },
+                enragedShootInterval: { easy: 2.2, normal: 1.8, hard: 1.3 },
+                bulletMin: { easy: 1, normal: 2, hard: 3 },
+                bulletMax: { easy: 2, normal: 3, hard: 4 },
+                enragedBulletMin: { easy: 3, normal: 4, hard: 5 },
+                enragedBulletMax: { easy: 4, normal: 6, hard: 7 },
+                bulletMaxBounces: { easy: 2, normal: 3, hard: 4 },
+                bulletSpeed: 1.0,
+                name: '怪獸', nameEnraged: '怪獸 (憤怒)',
+                icon: '🦎', iconEnraged: '💀'
+            },
+            tank: {
+                hp: { easy: 150, normal: 300, hard: 450 },
+                moveSpeed: { easy: 0.4, normal: 0.5, hard: 0.7 },
+                enragedMoveSpeed: { easy: 0.6, normal: 0.8, hard: 1.1 },
+                shootInterval: { easy: 4.0, normal: 3.5, hard: 3.0 },
+                enragedShootInterval: { easy: 3.0, normal: 2.5, hard: 2.0 },
+                bulletMin: { easy: 1, normal: 1, hard: 2 },
+                bulletMax: { easy: 2, normal: 2, hard: 3 },
+                enragedBulletMin: { easy: 2, normal: 2, hard: 3 },
+                enragedBulletMax: { easy: 3, normal: 3, hard: 4 },
+                bulletMaxBounces: { easy: 1, normal: 2, hard: 2 },
+                bulletSpeed: 0.7,
+                name: '重裝坦克', nameEnraged: '重裝坦克 (暴走)',
+                icon: '🔩', iconEnraged: '💥'
+            },
+            ufo: {
+                hp: { easy: 150, normal: 300, hard: 450 },
+                moveSpeed: { easy: 1.5, normal: 2.0, hard: 2.5 },
+                enragedMoveSpeed: { easy: 2.2, normal: 3.0, hard: 3.5 },
+                shootInterval: { easy: 1.5, normal: 1.2, hard: 1.0 },
+                enragedShootInterval: { easy: 1.0, normal: 0.8, hard: 0.6 },
+                bulletMin: { easy: 3, normal: 4, hard: 5 },
+                bulletMax: { easy: 4, normal: 5, hard: 6 },
+                enragedBulletMin: { easy: 5, normal: 6, hard: 7 },
+                enragedBulletMax: { easy: 6, normal: 8, hard: 9 },
+                bulletMaxBounces: { easy: 3, normal: 4, hard: 5 },
+                bulletSpeed: 0.6,
+                name: '宇宙戰艦', nameEnraged: '宇宙戰艦 (超載)',
+                icon: '🛸', iconEnraged: '⚡'
+            }
+        };
 
-        // 移動 AI — Hard 移動更快
+        const stats = BOSS_STATS[this.bossType];
+        this.maxHp = stats.hp[d] || 200;
+        this.hp = this.maxHp;
+        this.phase = 'enter';
+        this.targetY = 80;
+        this.bossName = stats.name;
+        this.bossNameEnraged = stats.nameEnraged;
+        this.bossIcon = stats.icon;
+        this.bossIconEnraged = stats.iconEnraged;
+
+        // 移動 AI
         this.moveDir = 1;
         this.moveTimer = 0;
-        this.moveSpeed = { easy: 0.7, normal: 1.0, hard: 1.5 }[d];
-        this.enragedMoveSpeed = { easy: 1.0, normal: 1.5, hard: 2.2 }[d];
+        this.moveSpeed = stats.moveSpeed[d];
+        this.enragedMoveSpeed = stats.enragedMoveSpeed[d];
         this.floatPhase = Math.random() * Math.PI * 2;
 
-        // 射擊 — Hard 頻率更高
+        // 射擊
         this.shootTimer = 2.0;
-        this.shootInterval = { easy: 3.0, normal: 2.5, hard: 2.0 }[d];
-        this.enragedShootInterval = { easy: 2.2, normal: 1.8, hard: 1.3 }[d];
-
-        // 子彈數量 — Hard 更多
-        this.bulletCountMin = { easy: 1, normal: 2, hard: 3 }[d];
-        this.bulletCountMax = { easy: 2, normal: 3, hard: 4 }[d];
-        this.enragedBulletCountMin = { easy: 3, normal: 4, hard: 5 }[d];
-        this.enragedBulletCountMax = { easy: 4, normal: 6, hard: 7 }[d];
-
-        // 子彈反彈次數 — Easy 更少
-        this.bulletMaxBounces = { easy: 2, normal: 3, hard: 4 }[d];
+        this.shootInterval = stats.shootInterval[d];
+        this.enragedShootInterval = stats.enragedShootInterval[d];
+        this.bulletCountMin = stats.bulletMin[d];
+        this.bulletCountMax = stats.bulletMax[d];
+        this.enragedBulletCountMin = stats.enragedBulletMin[d];
+        this.enragedBulletCountMax = stats.enragedBulletMax[d];
+        this.bulletMaxBounces = stats.bulletMaxBounces[d];
+        this.bulletSpeed = stats.bulletSpeed;
 
         // 視覺
         this.flashTimer = 0;
@@ -1091,7 +1142,7 @@ class Boss extends Entity {
         if (this.phase === 'active' && this.hp <= this.maxHp * 0.5) {
             this.phase = 'enraged';
             this.moveSpeed = this.enragedMoveSpeed;
-            showEffectNotice("⚠️ 魔王進入憤怒模式！");
+            showEffectNotice(`⚠️ ${this.bossName}進入憤怒模式！`);
         }
 
         // 射擊系統
@@ -1115,9 +1166,9 @@ class Boss extends Entity {
         for (let i = 0; i < bulletCount; i++) {
             let bx = this.x + this.w / 2 - 8 + (Math.random() - 0.5) * 40;
             let by = this.y + this.h;
-            let vx = (Math.random() - 0.5) * 3;
-            let vy = 1.0 + Math.random() * 0.8;
-            bossBullets.push(new BossBullet(bx, by, vx, vy, isEnraged, this.bulletMaxBounces));
+            let vx = (Math.random() - 0.5) * 3 * this.bulletSpeed;
+            let vy = (1.0 + Math.random() * 0.8) * this.bulletSpeed;
+            bossBullets.push(new BossBullet(bx, by, vx, vy, isEnraged, this.bulletMaxBounces, this.bossType));
         }
     }
 
@@ -1134,7 +1185,7 @@ class Boss extends Entity {
             createExplosion(this.x + this.w / 2 + 20, this.y + this.h / 2 - 10, '#ff9ff3');
             // 清除所有 Boss 子彈
             bossBullets = [];
-            showEffectNotice("🎉 魔王被擊敗！");
+            showEffectNotice(`🎉 ${this.bossName}被擊敗！`);
         } else {
             AudioSys.playCrash();
         }
@@ -1167,234 +1218,229 @@ class Boss extends Entity {
     draw(ctx) {
         if (!this.active) return;
 
-        // 死亡閃爍
         if (this.phase === 'dead') {
             if (Math.floor(Date.now() / 60) % 2 === 0) return;
         }
-
-        // 受傷閃爍
         if (this.flashTimer > 0 && Math.floor(Date.now() / 50) % 2 === 0) {
             ctx.globalAlpha = 0.5;
         }
 
         ctx.save();
-        let cx = this.x + this.w / 2;
-        let cy = this.y + this.h / 2;
 
-        let isEnraged = this.phase === 'enraged' || this.phase === 'dead';
-
-        // ====== 奧特曼風格怪獸 (ウルトラ怪獣) ======
-
-        // --- 身體光暈 ---
-        ctx.shadowColor = isEnraged ? '#ff4400' : '#2d8a4e';
-        ctx.shadowBlur = isEnraged ? 25 : 12;
-
-        // --- 肩甲 / 護肩尖刺 ---
-        ctx.fillStyle = isEnraged ? '#8b2500' : '#2f4f2f';
-        // 左肩刺
-        ctx.beginPath();
-        ctx.moveTo(cx - 42, cy - 5);
-        ctx.lineTo(cx - 60, cy - 30);
-        ctx.lineTo(cx - 48, cy - 18);
-        ctx.lineTo(cx - 55, cy - 45);
-        ctx.lineTo(cx - 35, cy - 15);
-        ctx.closePath();
-        ctx.fill();
-        // 右肩刺
-        ctx.beginPath();
-        ctx.moveTo(cx + 42, cy - 5);
-        ctx.lineTo(cx + 60, cy - 30);
-        ctx.lineTo(cx + 48, cy - 18);
-        ctx.lineTo(cx + 55, cy - 45);
-        ctx.lineTo(cx + 35, cy - 15);
-        ctx.closePath();
-        ctx.fill();
-
-        // --- 身體主體 (怪獸裝甲軀幹) ---
-        let bodyGrad = ctx.createRadialGradient(cx, cy + 5, 5, cx, cy, 55);
-        if (isEnraged) {
-            bodyGrad.addColorStop(0, '#ff6633');
-            bodyGrad.addColorStop(0.4, '#8b2500');
-            bodyGrad.addColorStop(0.8, '#5a1000');
-            bodyGrad.addColorStop(1, '#3b0800');
+        if (this.bossType === 'tank') {
+            this.drawTank(ctx);
+        } else if (this.bossType === 'ufo') {
+            this.drawUfo(ctx);
         } else {
-            bodyGrad.addColorStop(0, '#4a7a5a');
-            bodyGrad.addColorStop(0.4, '#2f5a3f');
-            bodyGrad.addColorStop(0.8, '#1a3a25');
-            bodyGrad.addColorStop(1, '#0d1f14');
-        }
-        ctx.fillStyle = bodyGrad;
-        ctx.beginPath();
-        ctx.ellipse(cx, cy + 5, this.w / 2 + 2, this.h / 2, 0, 0, Math.PI * 2);
-        ctx.fill();
-
-        // --- 胸甲紋路 (V字形裝甲線條) ---
-        ctx.strokeStyle = isEnraged ? '#ff9944' : '#5a9a6a';
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.moveTo(cx - 25, cy - 15);
-        ctx.lineTo(cx, cy + 20);
-        ctx.lineTo(cx + 25, cy - 15);
-        ctx.stroke();
-        ctx.beginPath();
-        ctx.moveTo(cx - 18, cy - 10);
-        ctx.lineTo(cx, cy + 12);
-        ctx.lineTo(cx + 18, cy - 10);
-        ctx.stroke();
-
-        // --- 頭部 (上方突出) ---
-        let headGrad = ctx.createRadialGradient(cx, cy - 22, 3, cx, cy - 20, 28);
-        if (isEnraged) {
-            headGrad.addColorStop(0, '#cc4400');
-            headGrad.addColorStop(0.6, '#7a2000');
-            headGrad.addColorStop(1, '#4a1000');
-        } else {
-            headGrad.addColorStop(0, '#3a6a4a');
-            headGrad.addColorStop(0.6, '#254a32');
-            headGrad.addColorStop(1, '#152a1d');
-        }
-        ctx.fillStyle = headGrad;
-        ctx.beginPath();
-        ctx.ellipse(cx, cy - 22, 28, 24, 0, 0, Math.PI * 2);
-        ctx.fill();
-
-        // --- 頭頂冠飾 (三叉角) ---
-        ctx.fillStyle = isEnraged ? '#ff7733' : '#3a8a5a';
-        // 中央角
-        ctx.beginPath();
-        ctx.moveTo(cx - 5, cy - 42);
-        ctx.lineTo(cx, cy - 68);
-        ctx.lineTo(cx + 5, cy - 42);
-        ctx.closePath();
-        ctx.fill();
-        // 左角
-        ctx.beginPath();
-        ctx.moveTo(cx - 18, cy - 35);
-        ctx.lineTo(cx - 30, cy - 60);
-        ctx.lineTo(cx - 10, cy - 38);
-        ctx.closePath();
-        ctx.fill();
-        // 右角
-        ctx.beginPath();
-        ctx.moveTo(cx + 18, cy - 35);
-        ctx.lineTo(cx + 30, cy - 60);
-        ctx.lineTo(cx + 10, cy - 38);
-        ctx.closePath();
-        ctx.fill();
-
-        ctx.shadowBlur = 0;
-
-        // --- 複眼 (昆蟲風格大橢圓眼，發光) ---
-        ctx.shadowColor = isEnraged ? '#ff6600' : '#ffaa00';
-        ctx.shadowBlur = 10;
-
-        // 左複眼
-        ctx.save();
-        ctx.translate(cx - 14, cy - 24);
-        ctx.rotate(-0.3);
-        let eyeGradL = ctx.createRadialGradient(0, 0, 1, 0, 0, 11);
-        eyeGradL.addColorStop(0, isEnraged ? '#ffcc00' : '#ffee44');
-        eyeGradL.addColorStop(0.5, isEnraged ? '#ff6600' : '#ffaa00');
-        eyeGradL.addColorStop(1, isEnraged ? '#cc3300' : '#cc8800');
-        ctx.fillStyle = eyeGradL;
-        ctx.beginPath();
-        ctx.ellipse(0, 0, 10, 12, 0, 0, Math.PI * 2);
-        ctx.fill();
-        // 複眼紋路
-        ctx.strokeStyle = 'rgba(0,0,0,0.3)';
-        ctx.lineWidth = 0.5;
-        for (let i = -8; i <= 8; i += 4) {
-            ctx.beginPath();
-            ctx.moveTo(i, -11);
-            ctx.lineTo(i, 11);
-            ctx.stroke();
-        }
-        // 高光
-        ctx.fillStyle = 'rgba(255,255,255,0.6)';
-        ctx.beginPath();
-        ctx.ellipse(-3, -4, 3, 4, -0.3, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.restore();
-
-        // 右複眼
-        ctx.save();
-        ctx.translate(cx + 14, cy - 24);
-        ctx.rotate(0.3);
-        let eyeGradR = ctx.createRadialGradient(0, 0, 1, 0, 0, 11);
-        eyeGradR.addColorStop(0, isEnraged ? '#ffcc00' : '#ffee44');
-        eyeGradR.addColorStop(0.5, isEnraged ? '#ff6600' : '#ffaa00');
-        eyeGradR.addColorStop(1, isEnraged ? '#cc3300' : '#cc8800');
-        ctx.fillStyle = eyeGradR;
-        ctx.beginPath();
-        ctx.ellipse(0, 0, 10, 12, 0, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.strokeStyle = 'rgba(0,0,0,0.3)';
-        ctx.lineWidth = 0.5;
-        for (let i = -8; i <= 8; i += 4) {
-            ctx.beginPath();
-            ctx.moveTo(i, -11);
-            ctx.lineTo(i, 11);
-            ctx.stroke();
-        }
-        ctx.fillStyle = 'rgba(255,255,255,0.6)';
-        ctx.beginPath();
-        ctx.ellipse(-3, -4, 3, 4, 0.3, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.restore();
-
-        ctx.shadowBlur = 0;
-
-        // --- 下顎 / 大顎鉗 ---
-        ctx.fillStyle = isEnraged ? '#993300' : '#1f3f2a';
-        // 左鉗
-        ctx.beginPath();
-        ctx.moveTo(cx - 12, cy - 10);
-        ctx.quadraticCurveTo(cx - 25, cy + 2, cx - 22, cy + 10);
-        ctx.quadraticCurveTo(cx - 18, cy + 5, cx - 8, cy - 5);
-        ctx.closePath();
-        ctx.fill();
-        // 右鉗
-        ctx.beginPath();
-        ctx.moveTo(cx + 12, cy - 10);
-        ctx.quadraticCurveTo(cx + 25, cy + 2, cx + 22, cy + 10);
-        ctx.quadraticCurveTo(cx + 18, cy + 5, cx + 8, cy - 5);
-        ctx.closePath();
-        ctx.fill();
-        // 鉗尖 (白色尖端)
-        ctx.fillStyle = isEnraged ? '#ffcc99' : '#aaddbb';
-        ctx.beginPath();
-        ctx.arc(cx - 22, cy + 9, 2.5, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.beginPath();
-        ctx.arc(cx + 22, cy + 9, 2.5, 0, Math.PI * 2);
-        ctx.fill();
-
-        // --- 憤怒模式發光裂紋 ---
-        if (isEnraged) {
-            ctx.strokeStyle = 'rgba(255, 150, 0, 0.7)';
-            ctx.lineWidth = 1.5;
-            ctx.shadowColor = '#ff6600';
-            ctx.shadowBlur = 8;
-            // 隨機閃爍的裂紋
-            let t = Date.now() * 0.003;
-            ctx.beginPath();
-            ctx.moveTo(cx - 10, cy + 5);
-            ctx.lineTo(cx - 5 + Math.sin(t) * 3, cy + 15);
-            ctx.lineTo(cx + 2, cy + 8);
-            ctx.stroke();
-            ctx.beginPath();
-            ctx.moveTo(cx + 8, cy);
-            ctx.lineTo(cx + 15, cy + 12 + Math.cos(t) * 2);
-            ctx.lineTo(cx + 10, cy + 18);
-            ctx.stroke();
-            ctx.shadowBlur = 0;
+            this.drawKaiju(ctx);
         }
 
         ctx.restore();
         ctx.globalAlpha = 1.0;
 
-        // --- Boss 血條 (畫面上方) ---
         this.drawHPBar(ctx);
+    }
+
+    drawKaiju(ctx) {
+        let cx = this.x + this.w / 2;
+        let cy = this.y + this.h / 2;
+        let isEnraged = this.phase === 'enraged' || this.phase === 'dead';
+
+        ctx.shadowColor = isEnraged ? '#ff4400' : '#2d8a4e';
+        ctx.shadowBlur = isEnraged ? 25 : 12;
+
+        ctx.fillStyle = isEnraged ? '#8b2500' : '#2f4f2f';
+        ctx.beginPath(); ctx.moveTo(cx - 42, cy - 5); ctx.lineTo(cx - 60, cy - 30); ctx.lineTo(cx - 48, cy - 18); ctx.lineTo(cx - 55, cy - 45); ctx.lineTo(cx - 35, cy - 15); ctx.closePath(); ctx.fill();
+        ctx.beginPath(); ctx.moveTo(cx + 42, cy - 5); ctx.lineTo(cx + 60, cy - 30); ctx.lineTo(cx + 48, cy - 18); ctx.lineTo(cx + 55, cy - 45); ctx.lineTo(cx + 35, cy - 15); ctx.closePath(); ctx.fill();
+
+        let bodyGrad = ctx.createRadialGradient(cx, cy + 5, 5, cx, cy, 55);
+        if (isEnraged) {
+            bodyGrad.addColorStop(0, '#ff6633'); bodyGrad.addColorStop(0.4, '#8b2500'); bodyGrad.addColorStop(0.8, '#5a1000'); bodyGrad.addColorStop(1, '#3b0800');
+        } else {
+            bodyGrad.addColorStop(0, '#4a7a5a'); bodyGrad.addColorStop(0.4, '#2f5a3f'); bodyGrad.addColorStop(0.8, '#1a3a25'); bodyGrad.addColorStop(1, '#0d1f14');
+        }
+        ctx.fillStyle = bodyGrad;
+        ctx.beginPath(); ctx.ellipse(cx, cy + 5, this.w / 2 + 2, this.h / 2, 0, 0, Math.PI * 2); ctx.fill();
+
+        ctx.strokeStyle = isEnraged ? '#ff9944' : '#5a9a6a'; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(cx - 25, cy - 15); ctx.lineTo(cx, cy + 20); ctx.lineTo(cx + 25, cy - 15); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(cx - 18, cy - 10); ctx.lineTo(cx, cy + 12); ctx.lineTo(cx + 18, cy - 10); ctx.stroke();
+
+        let headGrad = ctx.createRadialGradient(cx, cy - 22, 3, cx, cy - 20, 28);
+        if (isEnraged) { headGrad.addColorStop(0, '#cc4400'); headGrad.addColorStop(0.6, '#7a2000'); headGrad.addColorStop(1, '#4a1000'); }
+        else { headGrad.addColorStop(0, '#3a6a4a'); headGrad.addColorStop(0.6, '#254a32'); headGrad.addColorStop(1, '#152a1d'); }
+        ctx.fillStyle = headGrad;
+        ctx.beginPath(); ctx.ellipse(cx, cy - 22, 28, 24, 0, 0, Math.PI * 2); ctx.fill();
+
+        ctx.fillStyle = isEnraged ? '#ff7733' : '#3a8a5a';
+        ctx.beginPath(); ctx.moveTo(cx - 5, cy - 42); ctx.lineTo(cx, cy - 68); ctx.lineTo(cx + 5, cy - 42); ctx.closePath(); ctx.fill();
+        ctx.beginPath(); ctx.moveTo(cx - 18, cy - 35); ctx.lineTo(cx - 30, cy - 60); ctx.lineTo(cx - 10, cy - 38); ctx.closePath(); ctx.fill();
+        ctx.beginPath(); ctx.moveTo(cx + 18, cy - 35); ctx.lineTo(cx + 30, cy - 60); ctx.lineTo(cx + 10, cy - 38); ctx.closePath(); ctx.fill();
+
+        ctx.shadowBlur = 0;
+
+        ctx.shadowColor = isEnraged ? '#ff6600' : '#ffaa00'; ctx.shadowBlur = 10;
+        for (let side = -1; side <= 1; side += 2) {
+            ctx.save();
+            ctx.translate(cx + side * 14, cy - 24); ctx.rotate(side * 0.3);
+            let eg = ctx.createRadialGradient(0, 0, 1, 0, 0, 11);
+            eg.addColorStop(0, isEnraged ? '#ffcc00' : '#ffee44'); eg.addColorStop(0.5, isEnraged ? '#ff6600' : '#ffaa00'); eg.addColorStop(1, isEnraged ? '#cc3300' : '#cc8800');
+            ctx.fillStyle = eg; ctx.beginPath(); ctx.ellipse(0, 0, 10, 12, 0, 0, Math.PI * 2); ctx.fill();
+            ctx.strokeStyle = 'rgba(0,0,0,0.3)'; ctx.lineWidth = 0.5;
+            for (let i = -8; i <= 8; i += 4) { ctx.beginPath(); ctx.moveTo(i, -11); ctx.lineTo(i, 11); ctx.stroke(); }
+            ctx.fillStyle = 'rgba(255,255,255,0.6)'; ctx.beginPath(); ctx.ellipse(-3, -4, 3, 4, side * -0.3, 0, Math.PI * 2); ctx.fill();
+            ctx.restore();
+        }
+        ctx.shadowBlur = 0;
+
+        ctx.fillStyle = isEnraged ? '#993300' : '#1f3f2a';
+        ctx.beginPath(); ctx.moveTo(cx - 12, cy - 10); ctx.quadraticCurveTo(cx - 25, cy + 2, cx - 22, cy + 10); ctx.quadraticCurveTo(cx - 18, cy + 5, cx - 8, cy - 5); ctx.closePath(); ctx.fill();
+        ctx.beginPath(); ctx.moveTo(cx + 12, cy - 10); ctx.quadraticCurveTo(cx + 25, cy + 2, cx + 22, cy + 10); ctx.quadraticCurveTo(cx + 18, cy + 5, cx + 8, cy - 5); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = isEnraged ? '#ffcc99' : '#aaddbb';
+        ctx.beginPath(); ctx.arc(cx - 22, cy + 9, 2.5, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(cx + 22, cy + 9, 2.5, 0, Math.PI * 2); ctx.fill();
+
+        if (isEnraged) {
+            ctx.strokeStyle = 'rgba(255, 150, 0, 0.7)'; ctx.lineWidth = 1.5; ctx.shadowColor = '#ff6600'; ctx.shadowBlur = 8;
+            let t = Date.now() * 0.003;
+            ctx.beginPath(); ctx.moveTo(cx - 10, cy + 5); ctx.lineTo(cx - 5 + Math.sin(t) * 3, cy + 15); ctx.lineTo(cx + 2, cy + 8); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(cx + 8, cy); ctx.lineTo(cx + 15, cy + 12 + Math.cos(t) * 2); ctx.lineTo(cx + 10, cy + 18); ctx.stroke();
+            ctx.shadowBlur = 0;
+        }
+    }
+
+    drawTank(ctx) {
+        let cx = this.x + this.w / 2;
+        let cy = this.y + this.h / 2;
+        let isEnraged = this.phase === 'enraged' || this.phase === 'dead';
+
+        ctx.shadowColor = isEnraged ? '#ff3300' : '#556b2f';
+        ctx.shadowBlur = isEnraged ? 20 : 10;
+
+        for (let side = -1; side <= 1; side += 2) {
+            let tx = cx + side * 45;
+            ctx.fillStyle = isEnraged ? '#4a1a00' : '#2d2d1f';
+            ctx.beginPath(); ctx.roundRect(tx - 12, cy - 38, 24, 76, 8); ctx.fill();
+            ctx.fillStyle = isEnraged ? '#663300' : '#3d3d2d';
+            for (let j = -32; j < 34; j += 10) { ctx.fillRect(tx - 10, cy + j, 20, 6); }
+            ctx.fillStyle = 'rgba(255,255,255,0.08)'; ctx.fillRect(tx - 10, cy - 35, 6, 70);
+        }
+
+        let hullGrad = ctx.createLinearGradient(cx, cy - 30, cx, cy + 30);
+        if (isEnraged) {
+            hullGrad.addColorStop(0, '#8b3a00'); hullGrad.addColorStop(0.5, '#6b2a00'); hullGrad.addColorStop(1, '#4a1a00');
+        } else {
+            hullGrad.addColorStop(0, '#5a6b3a'); hullGrad.addColorStop(0.5, '#4a5a2d'); hullGrad.addColorStop(1, '#3a4a20');
+        }
+        ctx.fillStyle = hullGrad;
+        ctx.beginPath(); ctx.moveTo(cx - 35, cy - 30); ctx.lineTo(cx + 35, cy - 30); ctx.lineTo(cx + 40, cy + 35); ctx.lineTo(cx - 40, cy + 35); ctx.closePath(); ctx.fill();
+
+        ctx.strokeStyle = isEnraged ? 'rgba(255,150,0,0.3)' : 'rgba(100,120,60,0.4)'; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(cx - 32, cy - 10); ctx.lineTo(cx + 32, cy - 10); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(cx - 35, cy + 10); ctx.lineTo(cx + 35, cy + 10); ctx.stroke();
+
+        ctx.fillStyle = isEnraged ? '#cc8844' : '#8a9a6a';
+        for (let side = -1; side <= 1; side += 2) {
+            for (let j = -20; j <= 20; j += 15) { ctx.beginPath(); ctx.arc(cx + side * 30, cy + j, 2, 0, Math.PI * 2); ctx.fill(); }
+        }
+
+        ctx.shadowBlur = 0;
+
+        let turretGrad = ctx.createRadialGradient(cx, cy - 8, 3, cx, cy - 8, 22);
+        if (isEnraged) {
+            turretGrad.addColorStop(0, '#aa4400'); turretGrad.addColorStop(0.7, '#773300'); turretGrad.addColorStop(1, '#552200');
+        } else {
+            turretGrad.addColorStop(0, '#6a7a4a'); turretGrad.addColorStop(0.7, '#4a5a2f'); turretGrad.addColorStop(1, '#3a4a24');
+        }
+        ctx.fillStyle = turretGrad;
+        ctx.beginPath(); ctx.ellipse(cx, cy - 8, 22, 20, 0, 0, Math.PI * 2); ctx.fill();
+
+        ctx.fillStyle = 'rgba(255,255,255,0.12)'; ctx.beginPath(); ctx.ellipse(cx - 3, cy - 14, 12, 8, -0.2, 0, Math.PI * 2); ctx.fill();
+
+        ctx.fillStyle = isEnraged ? '#884400' : '#556b2f';
+        ctx.save(); ctx.translate(cx, cy - 8);
+        ctx.fillRect(-5, 10, 10, 35);
+        ctx.fillStyle = isEnraged ? '#aa5500' : '#667744'; ctx.fillRect(-7, 40, 14, 6);
+        if (this.shootTimer < 0.3) {
+            ctx.fillStyle = isEnraged ? '#ff6600' : '#ffaa33'; ctx.shadowColor = isEnraged ? '#ff4400' : '#ffaa33'; ctx.shadowBlur = 15;
+            ctx.beginPath(); ctx.arc(0, 48, 6, 0, Math.PI * 2); ctx.fill(); ctx.shadowBlur = 0;
+        }
+        ctx.restore();
+
+        ctx.fillStyle = isEnraged ? '#993300' : '#5a6a3a'; ctx.beginPath(); ctx.ellipse(cx, cy - 18, 8, 6, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = isEnraged ? '#ffaa00' : '#aabb88'; ctx.shadowColor = isEnraged ? '#ff6600' : '#aabb88'; ctx.shadowBlur = 5;
+        ctx.beginPath(); ctx.arc(cx, cy - 18, 3, 0, Math.PI * 2); ctx.fill(); ctx.shadowBlur = 0;
+
+        if (isEnraged) {
+            ctx.strokeStyle = 'rgba(255,100,0,0.5)'; ctx.lineWidth = 2; ctx.shadowColor = '#ff4400'; ctx.shadowBlur = 10;
+            for (let side = -1; side <= 1; side += 2) { ctx.beginPath(); ctx.roundRect(cx + side * 45 - 12, cy - 38, 24, 76, 8); ctx.stroke(); }
+            ctx.shadowBlur = 0;
+        }
+    }
+
+    drawUfo(ctx) {
+        let cx = this.x + this.w / 2;
+        let cy = this.y + this.h / 2;
+        let isEnraged = this.phase === 'enraged' || this.phase === 'dead';
+        let t = Date.now() * 0.002;
+
+        ctx.shadowColor = isEnraged ? '#ff2200' : '#4488ff'; ctx.shadowBlur = isEnraged ? 22 : 14;
+
+        ctx.fillStyle = isEnraged ? '#661a00' : '#2a3a5a';
+        ctx.beginPath(); ctx.moveTo(cx - 20, cy - 5); ctx.lineTo(cx - 62, cy + 12); ctx.lineTo(cx - 58, cy + 18); ctx.lineTo(cx - 18, cy + 8); ctx.closePath(); ctx.fill();
+        ctx.beginPath(); ctx.moveTo(cx + 20, cy - 5); ctx.lineTo(cx + 62, cy + 12); ctx.lineTo(cx + 58, cy + 18); ctx.lineTo(cx + 18, cy + 8); ctx.closePath(); ctx.fill();
+
+        let blink = Math.sin(t * 3) > 0;
+        if (blink) {
+            ctx.fillStyle = isEnraged ? '#ff4400' : '#44aaff'; ctx.shadowColor = isEnraged ? '#ff4400' : '#44aaff'; ctx.shadowBlur = 8;
+            ctx.beginPath(); ctx.arc(cx - 60, cy + 15, 3, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(cx + 60, cy + 15, 3, 0, Math.PI * 2); ctx.fill();
+            ctx.shadowBlur = 0;
+        }
+
+        let bodyGrad = ctx.createLinearGradient(cx, cy - 35, cx, cy + 25);
+        if (isEnraged) {
+            bodyGrad.addColorStop(0, '#993300'); bodyGrad.addColorStop(0.3, '#772200'); bodyGrad.addColorStop(0.7, '#551500'); bodyGrad.addColorStop(1, '#441100');
+        } else {
+            bodyGrad.addColorStop(0, '#4a6a8a'); bodyGrad.addColorStop(0.3, '#3a5a7a'); bodyGrad.addColorStop(0.7, '#2a4a6a'); bodyGrad.addColorStop(1, '#1a3a5a');
+        }
+        ctx.fillStyle = bodyGrad;
+        ctx.beginPath(); ctx.moveTo(cx, cy - 38); ctx.lineTo(cx - 22, cy + 5); ctx.lineTo(cx - 18, cy + 25); ctx.lineTo(cx + 18, cy + 25); ctx.lineTo(cx + 22, cy + 5); ctx.closePath(); ctx.fill();
+
+        ctx.fillStyle = 'rgba(255,255,255,0.08)';
+        ctx.beginPath(); ctx.moveTo(cx, cy - 36); ctx.lineTo(cx - 5, cy + 5); ctx.lineTo(cx + 5, cy + 5); ctx.closePath(); ctx.fill();
+
+        ctx.shadowBlur = 0;
+
+        let cockpitGrad = ctx.createRadialGradient(cx - 2, cy - 18, 1, cx, cy - 14, 12);
+        cockpitGrad.addColorStop(0, 'rgba(180,220,255,0.9)'); cockpitGrad.addColorStop(0.5, 'rgba(100,160,220,0.6)'); cockpitGrad.addColorStop(1, 'rgba(40,80,140,0.3)');
+        ctx.fillStyle = cockpitGrad;
+        ctx.beginPath(); ctx.ellipse(cx, cy - 14, 10, 12, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = 'rgba(255,255,255,0.5)'; ctx.beginPath(); ctx.ellipse(cx - 3, cy - 19, 4, 5, -0.4, 0, Math.PI * 2); ctx.fill();
+
+        for (let side = -1; side <= 1; side += 2) {
+            let ex = cx + side * 12; let ey = cy + 25;
+            ctx.fillStyle = isEnraged ? '#553300' : '#334455'; ctx.fillRect(ex - 5, ey, 10, 8);
+            let flameLen = 8 + Math.sin(t * 5 + side) * 5 + Math.random() * 4;
+            let flameGrad = ctx.createLinearGradient(ex, ey + 8, ex, ey + 8 + flameLen);
+            if (isEnraged) {
+                flameGrad.addColorStop(0, '#ff6600'); flameGrad.addColorStop(0.5, '#ff3300'); flameGrad.addColorStop(1, 'rgba(255,0,0,0)');
+            } else {
+                flameGrad.addColorStop(0, '#66aaff'); flameGrad.addColorStop(0.5, '#3366ff'); flameGrad.addColorStop(1, 'rgba(50,50,200,0)');
+            }
+            ctx.fillStyle = flameGrad;
+            ctx.beginPath(); ctx.moveTo(ex - 4, ey + 8); ctx.lineTo(ex + 4, ey + 8); ctx.lineTo(ex, ey + 8 + flameLen); ctx.closePath(); ctx.fill();
+        }
+
+        ctx.fillStyle = isEnraged ? 'rgba(255,100,0,0.6)' : 'rgba(100,200,255,0.5)'; ctx.shadowColor = isEnraged ? '#ff4400' : '#44aaff'; ctx.shadowBlur = 8;
+        ctx.beginPath(); ctx.arc(cx - 15, cy + 8, 3, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(cx + 15, cy + 8, 3, 0, Math.PI * 2); ctx.fill(); ctx.shadowBlur = 0;
+
+        if (isEnraged) {
+            ctx.strokeStyle = 'rgba(255,100,0,0.5)'; ctx.lineWidth = 2; ctx.shadowColor = '#ff4400'; ctx.shadowBlur = 12;
+            ctx.beginPath(); ctx.moveTo(cx, cy - 38); ctx.lineTo(cx - 22, cy + 5); ctx.lineTo(cx - 18, cy + 25); ctx.lineTo(cx + 18, cy + 25); ctx.lineTo(cx + 22, cy + 5); ctx.closePath(); ctx.stroke();
+            ctx.shadowBlur = 0;
+        }
     }
 
     drawHPBar(ctx) {
@@ -1403,11 +1449,13 @@ class Boss extends Entity {
         let barX = (canvas.width - barW) / 2;
         let barY = 15;
 
-        // 標題
-        ctx.fillStyle = this.phase === 'enraged' ? '#ff4444' : '#e74c3c';
+        let isE = this.phase === 'enraged';
+        ctx.fillStyle = isE ? '#ff4444' : '#e74c3c';
         ctx.font = 'bold 14px sans-serif';
         ctx.textAlign = 'center';
-        ctx.fillText(this.phase === 'enraged' ? '💀 魔王 (憤怒)' : '👹 魔王', canvas.width / 2, barY - 2);
+        let icon = isE ? this.bossIconEnraged : this.bossIcon;
+        let name = isE ? this.bossNameEnraged : this.bossName;
+        ctx.fillText(`${icon} ${name}`, canvas.width / 2, barY - 2);
 
         // 血條背景
         ctx.fillStyle = 'rgba(0,0,0,0.6)';
@@ -1436,13 +1484,15 @@ class Boss extends Entity {
 }
 
 class BossBullet extends Entity {
-    constructor(x, y, vx, vy, isEnraged, maxBounces) {
-        super(x, y, 24, 24);
+    constructor(x, y, vx, vy, isEnraged, maxBounces, bossType) {
+        let size = bossType === 'tank' ? 30 : (bossType === 'ufo' ? 16 : 24);
+        super(x, y, size, size);
         this.vx = vx;
         this.vy = vy;
         this.bounceCount = 0;
         this.maxBounces = maxBounces || 3;
         this.isEnraged = isEnraged;
+        this.bossType = bossType || 'kaiju';
         this.spawnTime = Date.now();
     }
 
@@ -1478,34 +1528,45 @@ class BossBullet extends Entity {
         let cx = this.x + this.w / 2;
         let cy = this.y + this.h / 2;
 
-        // 旋轉動畫
-        let angle = (Date.now() - this.spawnTime) * 0.005;
-
         ctx.translate(cx, cy);
-        ctx.rotate(angle);
 
-        // 外層光暈
-        ctx.shadowColor = this.isEnraged ? '#ff2200' : '#e74c3c';
-        ctx.shadowBlur = 16;
-
-        // 子彈本體（紅色大型能量球）
-        ctx.fillStyle = this.isEnraged ? '#ff2200' : '#e74c3c';
-        ctx.beginPath();
-        for (let i = 0; i < 5; i++) {
-            let r1 = 12, r2 = 6;
-            let a1 = (Math.PI * 2 / 5) * i - Math.PI / 2;
-            let a2 = a1 + Math.PI / 5;
-            ctx.lineTo(Math.cos(a1) * r1, Math.sin(a1) * r1);
-            ctx.lineTo(Math.cos(a2) * r2, Math.sin(a2) * r2);
+        if (this.bossType === 'tank') {
+            // 坦克：無旋轉，大型高爆彈
+            ctx.shadowColor = this.isEnraged ? '#ff4400' : '#d35400';
+            ctx.shadowBlur = 12;
+            ctx.fillStyle = this.isEnraged ? '#ff2200' : '#e67e22';
+            ctx.beginPath(); ctx.arc(0, 0, this.w / 2, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = 'rgba(255,255,255,0.8)';
+            ctx.beginPath(); ctx.arc(-4, -4, 4, 0, Math.PI * 2); ctx.fill();
+        } else if (this.bossType === 'ufo') {
+            // 飛船：依據速度方向旋轉的電漿束
+            let angle = Math.atan2(this.vy, this.vx);
+            ctx.rotate(angle);
+            ctx.shadowColor = this.isEnraged ? '#ff2200' : '#00aaff';
+            ctx.shadowBlur = 15;
+            ctx.fillStyle = this.isEnraged ? '#ff4400' : '#00ccff';
+            ctx.beginPath(); ctx.ellipse(0, 0, 12, 4, 0, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = '#ffffff';
+            ctx.beginPath(); ctx.ellipse(-2, 0, 6, 2, 0, 0, Math.PI * 2); ctx.fill();
+        } else {
+            // 怪獸：持續旋轉的星形能量球
+            let angle = (Date.now() - this.spawnTime) * 0.005;
+            ctx.rotate(angle);
+            ctx.shadowColor = this.isEnraged ? '#ff2200' : '#e74c3c';
+            ctx.shadowBlur = 16;
+            ctx.fillStyle = this.isEnraged ? '#ff2200' : '#e74c3c';
+            ctx.beginPath();
+            for (let i = 0; i < 5; i++) {
+                let r1 = 12, r2 = 6;
+                let a1 = (Math.PI * 2 / 5) * i - Math.PI / 2;
+                let a2 = a1 + Math.PI / 5;
+                ctx.lineTo(Math.cos(a1) * r1, Math.sin(a1) * r1);
+                ctx.lineTo(Math.cos(a2) * r2, Math.sin(a2) * r2);
+            }
+            ctx.closePath(); ctx.fill();
+            ctx.fillStyle = 'rgba(255,255,255,0.7)';
+            ctx.beginPath(); ctx.arc(0, 0, 5, 0, Math.PI * 2); ctx.fill();
         }
-        ctx.closePath();
-        ctx.fill();
-
-        // 核心白色
-        ctx.fillStyle = 'rgba(255,255,255,0.7)';
-        ctx.beginPath();
-        ctx.arc(0, 0, 5, 0, Math.PI * 2);
-        ctx.fill();
 
         ctx.shadowBlur = 0;
         ctx.restore();
@@ -1591,10 +1652,8 @@ function initGame() {
     GameState.bossWarningTimer = 0;
     GameState.lastFrameTime = performance.now();
     GameState.isRunning = true;
-
-    // ★ 測試用：一進遊戲就生成 Boss
-    boss = new Boss();
-    GameState.bossActive = true;
+    GameState.bossSpawnTimer = 0;
+    GameState.bossCycleCount = 0;
 
     screens.menu.classList.remove('active');
     screens.game.classList.add('active');
@@ -1602,8 +1661,7 @@ function initGame() {
     updateHUD();
     requestAnimationFrame(gameLoop);
 }
-
-function endGame() {
+function endGame(reason = '時間到了！') {
     GameState.isRunning = false;
     AudioSys.stopEngine();
     AudioSys.stopBGM();
@@ -1612,6 +1670,7 @@ function endGame() {
     screens.gameOver.classList.add('active');
     document.getElementById('go-dist').innerText = (GameState.dist / 1000).toFixed(2);
     document.getElementById('go-max-speed').innerText = GameState.maxRecordedSpeed; // 顯示最高時速
+    document.getElementById('go-reason').innerText = reason;
 
     // 重置存檔區
     document.getElementById('save-score-section').style.display = 'block';
@@ -1697,11 +1756,13 @@ function gameLoop(currentTime) {
     const dt = (currentTime - GameState.lastFrameTime) / 1000;
     GameState.lastFrameTime = currentTime;
 
-    // Time Management
-    GameState.time -= dt;
-    if (GameState.time <= 0) {
-        GameState.time = 0;
-        endGame();
+    // Time Management (魔王發威時暫停倒數)
+    if (!GameState.bossActive) {
+        GameState.time -= dt;
+        if (GameState.time <= 0) {
+            GameState.time = 0;
+            endGame();
+        }
     }
     hud.time.innerText = GameState.time.toFixed(1);
 
@@ -1792,7 +1853,30 @@ function update(dt) {
     particles.forEach(p => p.update(dt));
     particles = particles.filter(p => p.life > 0);
 
-    // Boss 更新
+    // Boss 生成與更新邏輯
+    if (!GameState.bossActive) {
+        GameState.bossSpawnTimer += dt;
+        // 每 60 秒生成一次魔王
+        if (GameState.bossSpawnTimer >= 60) {
+            GameState.bossWarningTimer = 3.0;
+            GameState.bossActive = true;
+            GameState.bossSpawnTimer = 0;
+
+            // 決定出現的魔王種類 (怪獸 -> 坦克 -> 飛船 循環)
+            const types = ['kaiju', 'tank', 'ufo'];
+            let nextType = types[GameState.bossCycleCount % types.length];
+            GameState.bossCycleCount++;
+
+            boss = new Boss(nextType);
+        }
+    } else {
+        if (GameState.bossWarningTimer > 0) {
+            GameState.bossWarningTimer -= dt;
+        } else if (boss && !boss.active) {
+            boss.active = true;
+        }
+    }
+
     if (boss && boss.active) {
         boss.update(dt);
     }
@@ -1840,13 +1924,25 @@ function update(dt) {
         }
     }
 
-    // 5. Boss 子彈打玩家
+    // 5. Boss 子彈與玩家/飛彈碰撞
     bossBullets.forEach(b => {
-        if (b.active && player.isCollidingWith(b)) {
+        if (!b.active) return;
+
+        // 玩家撞 Boss 子彈
+        if (player.isCollidingWith(b)) {
             b.active = false;
             player.takeDamage(1);
             createExplosion(b.x + b.w / 2, b.y + b.h / 2, '#a855f7');
         }
+
+        // 玩家飛彈打 Boss 子彈 (互相抵消)
+        missiles.forEach(m => {
+            if (m.active && b.active && m.isCollidingWith(b)) {
+                m.active = false;
+                b.active = false;
+                createExplosion(b.x + b.w / 2, b.y + b.h / 2, '#ffaa00');
+            }
+        });
     });
 
     // 6. 玩家吃道具
@@ -1877,8 +1973,13 @@ function update(dt) {
                 player.boostTimer = 10.0;
                 showEffectNotice("衝刺啟動！10秒！");
             } else if (i.type === 'hp') {
-                player.hp += 1;
-                showEffectNotice("血量 +1！");
+                if (GameState.carType === 'heavy') {
+                    player.hp += 2;
+                    showEffectNotice("血量 +2！(重裝加成)");
+                } else {
+                    player.hp += 1;
+                    showEffectNotice("血量 +1！");
+                }
             }
         }
     });
